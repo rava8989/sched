@@ -1,1 +1,345 @@
 
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Pure Schedule</title>
+  <style>
+    :root{
+      --bg:#fff; --ink:#111; --muted:#666; --grid:#111;
+      --hdr:#2b2b2b; --hdr2:#3a3a3a;
+      --a:#cfcfcf; --b:#f8f8f8; --c:#dedede;
+      --rdo:#1f1f1f; --rdoInk:#fff;
+      --mdo:#bfbfbf; --mdoInk:#111;
+      --shadow:0 2px 10px rgba(0,0,0,.08);
+      --radius:10px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
+      --sans: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    }
+    html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);}
+    .topbar{position:sticky;top:0;z-index:50;background:var(--bg);border-bottom:2px solid var(--grid);padding:10px 12px;}
+    .row{display:flex;gap:10px;align-items:end;flex-wrap:wrap;}
+    .ctl{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);}
+    .ctl select,.ctl input{
+      font-size:14px;padding:8px 10px;border:2px solid var(--grid);border-radius:8px;background:#fff;color:var(--ink);
+      min-width:180px;
+    }
+    button{font-size:14px;padding:10px 12px;border:2px solid var(--grid);background:#fff;border-radius:999px;cursor:pointer;}
+    .spacer{flex:1}
+
+    .wrap{padding:12px;}
+    .panel{border:2px solid var(--grid);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);background:#fff;margin-bottom:12px;}
+    .monthHeader{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--hdr);color:#fff;font-weight:900;letter-spacing:.5px;text-transform:uppercase;font-size:14px;}
+    .monthHeader small{opacity:.85;font-weight:700;text-transform:none;letter-spacing:0;font-size:12px;}
+    .scrollX{overflow:auto;}
+
+    table{border-collapse:collapse;width:max-content;min-width:100%;table-layout:fixed;font-family:var(--mono);font-size:12px;}
+    th,td{border:1px solid var(--grid);padding:0;text-align:center;vertical-align:middle;}
+    th.stickyLeft, td.stickyLeft{position:sticky;left:0;z-index:5;background:#fff;}
+    th.stickyLeft2, td.stickyLeft2{position:sticky;left:240px;z-index:5;background:#fff;}
+    .colName{width:240px;min-width:240px;max-width:240px;}
+    .colSlot{width:80px;min-width:80px;max-width:80px;}
+    .colDay{width:36px;min-width:36px;max-width:36px;}
+
+    thead .dayTop{background:var(--hdr);color:#fff;font-weight:900;}
+    thead .dow{background:var(--hdr2);color:#fff;font-weight:800;font-size:11px;}
+    thead .band{background:var(--hdr);color:#fff;text-transform:uppercase;letter-spacing:.5px;}
+
+    tbody tr.personRow td{background:#f3f3f3;}
+    tbody tr.personRow:nth-child(2n) td{background:#eaeaea;}
+
+    .nameCell{padding:6px 10px;text-align:left;font-family:var(--sans);font-size:13px;font-weight:900;white-space:nowrap;}
+    .slotCell{font-family:var(--sans);font-size:12px;font-weight:900;padding:6px 8px;text-align:left;white-space:nowrap;}
+
+    td.code{user-select:none;font-weight:900;height:28px;line-height:28px;white-space:nowrap;}
+    td.code[data-code="A"]{background:var(--a);}
+    td.code[data-code="B"]{background:var(--b);}
+    td.code[data-code="C"]{background:var(--c);}
+    td.code[data-code="R"]{background:#e7e7e7;}
+    td.code[data-code="RDO"]{background:var(--rdo);color:var(--rdoInk);}
+    td.code[data-code="MDO"]{background:var(--mdo);color:var(--mdoInk);}
+    td.code[data-code*="/"]{background:#fff;font-weight:1000;box-shadow:inset 0 0 0 2px #000;}
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="row">
+      <div class="ctl">
+        <div>Start Month</div>
+        <input id="startMonth" type="month" />
+      </div>
+
+      <div class="ctl">
+        <div>Show Months (on screen)</div>
+        <select id="showMonths">
+          <option value="3">3</option>
+          <option value="4">4</option>
+        </select>
+      </div>
+
+      <div class="ctl">
+        <div>Range Ahead</div>
+        <select id="rangeAhead">
+          <option value="12">12 months</option>
+        </select>
+      </div>
+
+      <button id="prevBtn">◀ Prev</button>
+      <button id="nextBtn">Next ▶</button>
+      <button id="thisBtn">This Month</button>
+
+      <div class="spacer"></div>
+
+      <div class="ctl">
+        <div>Scroll To Person</div>
+        <select id="personJump"></select>
+      </div>
+      <button id="jumpBtn">Jump</button>
+    </div>
+  </div>
+
+  <div class="wrap" id="monthsWrap"></div>
+
+<script>
+/* =========================
+   Baseline 6-week loop
+   ========================= */
+const ANCHOR_DATE_ISO = "2026-01-01";
+const LOOP_LEN = 42;
+
+const SLOT_TEMPLATES = {
+  1: ["R","R","RDO","RDO","RDO","MDO","C","C/A","C","C","C","C","RDO","RDO","B","B","B","B","B","B","RDO","RDO","A","A","A","A","A/C","A","MDO","RDO","RDO","RDO","B","B","B","B","B","RDO","RDO","R","R","R"],
+  2: ["C/A","C","C","C","C","RDO","RDO","B","B","B","B","B","B","RDO","RDO","A","A","A","A","A/C","A","MDO","RDO","RDO","RDO","B","B","B","B","B","RDO","RDO","R","R","R","R","R","RDO","RDO","RDO","MDO","C"],
+  3: ["B","B","B","B","B","B","RDO","RDO","A","A","A","A","A/C","A","MDO","RDO","RDO","RDO","B","B","B","B","B","RDO","RDO","R","R","R","R","R","RDO","RDO","RDO","MDO","C","C/A","C","C","C","C","RDO","RDO"],
+  4: ["RDO","A","A","A","A","A/C","A","MDO","RDO","RDO","RDO","B","B","B","B","B","RDO","RDO","R","R","R","R","R","RDO","RDO","RDO","MDO","C","C/A","C","C","C","C","RDO","RDO","B","B","B","B","B","B","RDO"],
+  5: ["MDO","RDO","RDO","RDO","B","B","B","B","B","RDO","RDO","R","R","R","R","R","RDO","RDO","RDO","MDO","C","C/A","C","C","C","C","RDO","RDO","B","B","B","B","B","B","RDO","RDO","A","A","A","A","A/C","A"],
+  6: ["B","B","RDO","RDO","R","R","R","R","R","RDO","RDO","RDO","MDO","C","C/A","C","C","C","C","RDO","RDO","B","B","B","B","B","B","RDO","RDO","A","A","A","A","A/C","A","MDO","RDO","RDO","RDO","B","B","B"]
+};
+
+/* =========================
+   Employees (edit as needed)
+   ========================= */
+const EMPLOYEES = [
+  { name:"Kingston, Joseph C.", slot:1 },
+  { name:"Rodriguez, Roger", slot:1 },
+  { name:"Joseph, George R", slot:2 },
+  { name:"Ramnarine, Ashram", slot:2 },
+  { name:"Segovia, Eduardo M", slot:3 },
+  { name:"Victoria, Robert", slot:3 },
+  { name:"Bouaziz, Abdelghani", slot:4 },
+  { name:"Gragossian, Alan", slot:4 },
+  { name:"Handel, Joseph", slot:5 },
+  { name:"Rakhmanov, Ravshan", slot:5 },
+  { name:"Rodriguez, Alexander", slot:6 },
+  { name:"Svenjak, Mark", slot:6 }
+];
+
+/* =========================
+   Date utils
+   ========================= */
+function pad2(n){ return String(n).padStart(2,"0"); }
+function isoDate(d){ return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
+function isoMonth(d){ return `${d.getFullYear()}-${pad2(d.getMonth()+1)}`; }
+function parseISODate(iso){ const [y,m,dd]=iso.split("-").map(Number); return new Date(y,m-1,dd); }
+function parseISOMonth(iso){ const [y,m]=iso.split("-").map(Number); return new Date(y,m-1,1); }
+function addMonths(date,n){ return new Date(date.getFullYear(), date.getMonth()+n, 1); }
+function daysInMonth(y,m0){ return new Date(y,m0+1,0).getDate(); }
+function dowShort(d){ return ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()]; }
+function monthTitle(d){
+  const months=["January","February","March","April","May","June","July","August","September","October","November","December"];
+  return `${months[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+/* =========================
+   Baseline schedule
+   ========================= */
+function loopIndex(iso){
+  const a=parseISODate(ANCHOR_DATE_ISO);
+  const d=parseISODate(iso);
+  const ms=24*60*60*1000;
+  const diff=Math.floor((d-a)/ms);
+  return ((diff%LOOP_LEN)+LOOP_LEN)%LOOP_LEN;
+}
+function baseCode(emp, iso){
+  const arr=SLOT_TEMPLATES[emp.slot];
+  return arr[loopIndex(iso)] || "";
+}
+
+/* =========================
+   State (view-only)
+   ========================= */
+const LS_KEY="pureSchedule_view_v1";
+function loadState(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)||"null"); }catch(e){ return null; } }
+function saveState(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
+
+const state = loadState() || {
+  startMonthISO: "2026-01",  // start Jan 2026 by default
+  showMonths: 3
+};
+
+/* =========================
+   Render
+   ========================= */
+const monthsWrap=document.getElementById("monthsWrap");
+const startMonthInput=document.getElementById("startMonth");
+const showMonthsSel=document.getElementById("showMonths");
+const personJump=document.getElementById("personJump");
+
+function render(){
+  startMonthInput.value=state.startMonthISO;
+  showMonthsSel.value=String(state.showMonths);
+
+  personJump.innerHTML="";
+  for(const e of EMPLOYEES){
+    const o=document.createElement("option");
+    o.value=e.name; o.textContent=e.name;
+    personJump.appendChild(o);
+  }
+
+  monthsWrap.innerHTML="";
+  const start=parseISOMonth(state.startMonthISO);
+  for(let i=0;i<Number(state.showMonths);i++){
+    const mDate=addMonths(start,i);
+    monthsWrap.appendChild(renderMonthPanel(mDate));
+  }
+}
+
+function renderMonthPanel(monthDate){
+  const y=monthDate.getFullYear(), m0=monthDate.getMonth(), dim=daysInMonth(y,m0);
+
+  const panel=document.createElement("div");
+  panel.className="panel";
+
+  const hdr=document.createElement("div");
+  hdr.className="monthHeader";
+  hdr.innerHTML=`<div>${monthTitle(monthDate)}</div><small>Rotating Shift (View Only)</small>`;
+  panel.appendChild(hdr);
+
+  const scroll=document.createElement("div");
+  scroll.className="scrollX";
+  panel.appendChild(scroll);
+
+  const table=document.createElement("table");
+  scroll.appendChild(table);
+
+  const thead=document.createElement("thead");
+  table.appendChild(thead);
+
+  const r1=document.createElement("tr");
+  thead.appendChild(r1);
+
+  const thName=document.createElement("th");
+  thName.className="stickyLeft colName band";
+  thName.textContent="NAME";
+  r1.appendChild(thName);
+
+  const thSlot=document.createElement("th");
+  thSlot.className="stickyLeft2 colSlot band";
+  thSlot.textContent="SLOT";
+  r1.appendChild(thSlot);
+
+  for(let d=1; d<=dim; d++){
+    const th=document.createElement("th");
+    th.className="colDay dayTop";
+    th.textContent=String(d);
+    r1.appendChild(th);
+  }
+
+  const r2=document.createElement("tr");
+  thead.appendChild(r2);
+
+  const thN2=document.createElement("th");
+  thN2.className="stickyLeft colName";
+  thN2.textContent="";
+  r2.appendChild(thN2);
+
+  const thS2=document.createElement("th");
+  thS2.className="stickyLeft2 colSlot";
+  thS2.textContent="";
+  r2.appendChild(thS2);
+
+  for(let d=1; d<=dim; d++){
+    const date=new Date(y,m0,d);
+    const th=document.createElement("th");
+    th.className="colDay dow";
+    th.textContent=dowShort(date);
+    r2.appendChild(th);
+  }
+
+  const tbody=document.createElement("tbody");
+  table.appendChild(tbody);
+
+  for(const emp of EMPLOYEES){
+    tbody.appendChild(renderPersonRow(monthDate, emp, dim));
+  }
+  return panel;
+}
+
+function renderPersonRow(monthDate, emp, dim){
+  const y=monthDate.getFullYear(), m0=monthDate.getMonth();
+  const tr=document.createElement("tr");
+  tr.className="personRow";
+  tr.id=`row-${emp.name.replaceAll(/[^a-z0-9]+/gi,"_")}`;
+
+  const tdName=document.createElement("td");
+  tdName.className="stickyLeft colName nameCell";
+  tdName.textContent=emp.name;
+  tr.appendChild(tdName);
+
+  const tdSlot=document.createElement("td");
+  tdSlot.className="stickyLeft2 colSlot slotCell";
+  tdSlot.textContent=`Slot ${emp.slot}`;
+  tr.appendChild(tdSlot);
+
+  for(let d=1; d<=dim; d++){
+    const iso=isoDate(new Date(y,m0,d));
+    const c=baseCode(emp, iso);
+
+    const td=document.createElement("td");
+    td.className="colDay code";
+    td.textContent=c;
+    td.setAttribute("data-code", c);
+    td.dataset.code=c;
+    tr.appendChild(td);
+  }
+  return tr;
+}
+
+/* =========================
+   Controls
+   ========================= */
+document.getElementById("prevBtn").addEventListener("click", ()=>{
+  const d=parseISOMonth(state.startMonthISO);
+  state.startMonthISO=isoMonth(addMonths(d,-1));
+  saveState(); render();
+});
+document.getElementById("nextBtn").addEventListener("click", ()=>{
+  const d=parseISOMonth(state.startMonthISO);
+  state.startMonthISO=isoMonth(addMonths(d,1));
+  saveState(); render();
+});
+document.getElementById("thisBtn").addEventListener("click", ()=>{
+  state.startMonthISO=isoMonth(new Date());
+  saveState(); render();
+});
+startMonthInput.addEventListener("change", ()=>{
+  state.startMonthISO=startMonthInput.value || "2026-01";
+  saveState(); render();
+});
+showMonthsSel.addEventListener("change", ()=>{
+  state.showMonths=Number(showMonthsSel.value);
+  saveState(); render();
+});
+document.getElementById("jumpBtn").addEventListener("click", ()=>{
+  const key = personJump.value.replaceAll(/[^a-z0-9]+/gi,"_");
+  const el=document.getElementById(`row-${key}`);
+  if(el) el.scrollIntoView({behavior:"smooth", block:"center"});
+});
+
+/* Init */
+saveState();
+render();
+</script>
+</body>
+</html>
