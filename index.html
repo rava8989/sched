@@ -166,47 +166,38 @@ const PEOPLE=[
  {n:"Svenjak, Mark",s:6}
 ];
 
-/* ===== HOLIDAYS – 2026 (UPDATED) ===== */
+/* ===== HOLIDAYS – 2026 (CORRECTED) ===== */
 const HOLIDAYS_2026 = new Set([
   "2026-01-01",
   "2026-01-19",
-  "2026-02-17",
+  "2026-02-16",
   "2026-05-26",
   "2026-06-19",
   "2026-07-03",
   "2026-07-06",
   "2026-09-07",
-  "2026-10-13",
+  "2026-10-12",
   "2026-11-11",
   "2026-11-26",
   "2026-11-27",
   "2026-12-25"
 ]);
 
-/* ================= UTC DATE UTIL (FIXES JAN 1 COVERAGE) ================= */
+/* ================= UTC DATE UTIL ================= */
 
 const pad=n=>String(n).padStart(2,"0");
-
-/* Always build dates in UTC so New York timezone cannot shift the loop */
 function makeUTC(y,m,d){ return new Date(Date.UTC(y,m,d)); }
-
 function isoUTC(d){
   const y=d.getUTCFullYear();
   const m=pad(d.getUTCMonth()+1);
   const day=pad(d.getUTCDate());
   return `${y}-${m}-${day}`;
 }
-
-function addDaysUTC(d, n){
-  const t = d.getTime() + n*86400000;
-  return new Date(t);
-}
-
-function dowUTC(d){ return d.getUTCDay(); } // 0 Sun .. 6 Sat
-
+function addDaysUTC(d, n){ return new Date(d.getTime() + n*86400000); }
+function dowUTC(d){ return d.getUTCDay(); } // 0 Sun..6 Sat
 function idx(i){ return ((i%LOOP)+LOOP)%LOOP; }
 
-/* Anchor is EXACTLY Jan 1, 2026 */
+/* Anchor is EXACTLY Jan 1, 2026 (no timezone shift) */
 const ANCHOR_UTC_MS = Date.UTC(2026,0,1);
 
 function baseCode(slot, dateUTC){
@@ -272,7 +263,7 @@ function computeDisplay(rangeStartUTC, rangeEndUTC){
     baseMapByPerson.set(p.n, m);
   }
 
-  const holOnDate = new Map(); // off as HOL
+  const holOnDate = new Map();
   const credits   = new Map();
   for(const p of PEOPLE){
     holOnDate.set(p.n, new Set());
@@ -318,9 +309,9 @@ function computeDisplay(rangeStartUTC, rangeEndUTC){
     for(const p of candidates){
       const incWeekend = bRunIncludesWeekend(holidayDateUTC, baseMapByPerson.get(p.n));
       if(needWeekGroup){
-        (incWeekend ? other : match).push(p); // Wed wants Mon–Fri (no weekend)
+        (incWeekend ? other : match).push(p); // Wed wants Mon–Fri
       } else if(needWeekendGroup){
-        (incWeekend ? match : other).push(p); // Mon/Tue/Thu/Fri wants Thu–Tue (includes weekend)
+        (incWeekend ? match : other).push(p); // Mon/Tue/Thu/Fri wants Thu–Tue
       } else {
         match.push(p);
       }
@@ -331,7 +322,7 @@ function computeDisplay(rangeStartUTC, rangeEndUTC){
     for(const p of sort(match)) if(pick.length<2) pick.push(p);
     for(const p of sort(other)) if(pick.length<2) pick.push(p);
 
-    // fail-safe always pick 2 if possible
+    // fail-safe: always pick 2 if possible
     if(pick.length<2){
       for(const p of sort(candidates)){
         if(pick.some(x=>x.n===p.n)) continue;
@@ -417,7 +408,7 @@ function computeDisplay(rangeStartUTC, rangeEndUTC){
 
 const wrap=document.getElementById("wrap");
 
-// default Jan 2026 (UTC-safe)
+// default Jan 2026
 let startUTC = makeUTC(2026,0,1);
 
 function setMonthInput(){
@@ -429,7 +420,6 @@ function render(){
   const show=+document.getElementById("showMonths").value;
 
   const rangeStartUTC = makeUTC(startUTC.getUTCFullYear(), startUTC.getUTCMonth(), 1);
-  // compute enough future so HOL credits can land in later months
   const rangeEndUTC = addDaysUTC(makeUTC(startUTC.getUTCFullYear(), startUTC.getUTCMonth()+12, 1), 220);
 
   const computed = computeDisplay(rangeStartUTC, rangeEndUTC);
@@ -501,7 +491,7 @@ function drawMonth(monthUTC, computed){
         td.classList.add("hol");
         td.textContent="HOL";
       } else {
-        td.textContent=base; // keep tours visible, including B on holidays for working B guys
+        td.textContent=base;
       }
 
       r.appendChild(td);
