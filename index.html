@@ -9,15 +9,13 @@
 :root{
   --grid:#6a6a6a;
 
-  /* darkness scale */
   --hdr9:#1a1a1a;   /* header weekday cells */
   --sun7:#4d4d4d;   /* Sunday column */
   --sat5:#7a7a7a;   /* Saturday column */
-  --wk:#f6f6f6;     /* weekday column base */
+  --wk:#f6f6f6;     /* weekday base */
 
-  /* alternating rows (weekday cells only) */
-  --row2:#e6e6e6;
-  --row1:#f0f0f0;
+  --row2:#e6e6e6;   /* stripe 1 (weekday only) */
+  --row1:#f0f0f0;   /* stripe 2 (weekday only) */
 
   --holiday:#b30000;
 }
@@ -81,7 +79,7 @@ th,td{
   font-weight:900;
 }
 
-/* sticky NAME only */
+/* sticky NAME */
 th.name, td.name{
   position:sticky;
   left:0;
@@ -104,24 +102,17 @@ tr.r1 td.wkCol{ background:var(--row1) !important; }
 tr.r2 td.name{ background:var(--row2) !important; }
 tr.r1 td.name{ background:var(--row1) !important; }
 
-/* header rows:
-   weekday cells = 9 dark
-   weekend cells keep weekend shade */
+/* header rows */
 tr.hdrRow th.wkCol{ background:var(--hdr9) !important; color:#fff !important; }
 tr.hdrRow th.satCol{ background:var(--sat5) !important; color:#111 !important; }
 tr.hdrRow th.sunCol{ background:var(--sun7) !important; color:#fff !important; }
 tr.hdrRow th.name{ background:var(--hdr9) !important; color:#fff !important; }
 
 /* HOL (off day) */
-td.hol{
-  color:var(--holiday) !important;
-  font-weight:1000;
-}
+td.hol{ color:var(--holiday) !important; font-weight:1000; }
 
-/* B WORKING on a holiday (still shows B, just a subtle mark so you can SEE coverage) */
-td.bWorkHol{
-  box-shadow: inset 0 -3px 0 var(--holiday);
-}
+/* B WORKING on a holiday (keeps B, gets a red underline so you SEE coverage) */
+td.bWorkHol{ box-shadow: inset 0 -3px 0 var(--holiday); }
 
 @media (max-width:700px){
   th.name, td.name{ min-width:150px; }
@@ -133,17 +124,13 @@ td.bWorkHol{
 <body>
 <header>
   <div class="controls">
-    <label>Start Month
-      <input id="startMonth" type="month">
-    </label>
-
+    <label>Start Month <input id="startMonth" type="month"></label>
     <label>Show Months
       <select id="showMonths">
         <option value="3">3</option>
         <option value="4">4</option>
       </select>
     </label>
-
     <button id="prev">◀</button>
     <button id="next">▶</button>
     <button id="today">This Month</button>
@@ -248,7 +235,11 @@ function bRunIncludesWeekend(person, date, baseMap){
   return false;
 }
 
-/* ================= HOLIDAY LOGIC (your rules) ================= */
+/* ================= HOLIDAY LOGIC (fixed) =================
+KEY FIX: HOL credits are NEVER allowed to land ON A HOLIDAY DATE.
+Because if a HOL credit lands on a holiday, it can wipe out B coverage.
+So: when placing credits, we SKIP any date that is a holiday.
+*/
 
 function computeDisplay(rangeStart, rangeEnd){
   // base maps per person
@@ -261,9 +252,9 @@ function computeDisplay(rangeStart, rangeEnd){
     baseMapByPerson.set(p.n, m);
   }
 
-  const holOnDate = new Map();      // HOL shown on that date
+  const holOnDate = new Map();      // HOL shown on that date (off)
   const credits   = new Map();      // HOL to be placed later
-  const bWorkOnHoliday = new Map(); // name -> Set(holidayISO) where B is WORKING that holiday
+  const bWorkOnHoliday = new Map(); // chosen B workers that WORK the holiday
   for(const p of PEOPLE){
     holOnDate.set(p.n, new Set());
     credits.set(p.n, 0);
@@ -280,6 +271,10 @@ function computeDisplay(rangeStart, rangeEnd){
     for(let i=0;i<180;i++){
       const di=iso(d);
       const code=baseM.get(di)||"";
+
+      // **FIX**: skip placing HOL on a holiday date
+      if(HOLIDAYS_2026.has(di)) { d.setDate(d.getDate()+1); continue; }
+
       if(isWeekday(d) && code==="B" && !holS.has(di)){
         holS.add(di);
         return true;
@@ -307,9 +302,9 @@ function computeDisplay(rangeStart, rangeEnd){
     for(const p of candidates){
       const incWeekend = bRunIncludesWeekend(p, holidayDate, baseMapByPerson.get(p.n));
       if(needWeekGroup){
-        (incWeekend ? other : match).push(p); // Wed wants Mon–Fri
+        (incWeekend ? other : match).push(p); // Wed wants Mon–Fri (no weekend)
       } else if(needWeekendGroup){
-        (incWeekend ? match : other).push(p); // Mon/Tue/Thu/Fri wants Thu–Tue
+        (incWeekend ? match : other).push(p); // Mon/Tue/Thu/Fri wants Thu–Tue (includes weekend)
       } else {
         match.push(p);
       }
@@ -321,15 +316,14 @@ function computeDisplay(rangeStart, rangeEnd){
     for(const p of sort(match)) if(pick.length<2) pick.push(p);
     for(const p of sort(other)) if(pick.length<2) pick.push(p);
 
-    // HARD FAILSAFE: if we still have <2, take first candidates so B is ALWAYS covered
+    // fail-safe: always pick 2 if possible
     if(pick.length<2){
       for(const p of sort(candidates)){
-        if(pick.find(x=>x.n===p.n)) continue;
+        if(pick.some(x=>x.n===p.n)) continue;
         pick.push(p);
         if(pick.length===2) break;
       }
     }
-
     return new Set(pick.map(p=>p.n));
   }
 
@@ -348,13 +342,13 @@ function computeDisplay(rangeStart, rangeEnd){
       const code = baseMapByPerson.get(p.n).get(hISO) || "";
 
       if(isReserve(code)){
-        // R never works holiday -> HOL on the holiday date
+        // R never works holiday -> HOL on holiday date
         holOnDate.get(p.n).add(hISO);
         continue;
       }
 
       if(isOff(code)){
-        // holiday landed on RDO/MDO -> moves to next weekday B
+        // RDO/MDO on holiday -> moves to next weekday B
         credits.set(p.n, credits.get(p.n)+1);
         continue;
       }
@@ -367,21 +361,21 @@ function computeDisplay(rangeStart, rangeEnd){
 
       if(code==="B"){
         if(bWorkers.has(p.n)){
-          // B WORKING the holiday (coverage)
+          // B WORKS holiday (coverage)
           bWorkOnHoliday.get(p.n).add(hISO);
-          credits.set(p.n, credits.get(p.n)+1); // gets HOL later
+          credits.set(p.n, credits.get(p.n)+1); // HOL later
         } else {
-          // B OFF the holiday -> HOL on holiday date
+          // B OFF holiday -> HOL that day
           holOnDate.get(p.n).add(hISO);
         }
         continue;
       }
 
-      // fallback: treat as working -> credit later
+      // fallback
       credits.set(p.n, credits.get(p.n)+1);
     }
 
-    // place credits ASAP after this holiday
+    // place credits ASAP after this holiday (and NEVER onto another holiday date)
     for(const p of PEOPLE){
       let c = credits.get(p.n);
       while(c>0){
@@ -412,21 +406,16 @@ function computeDisplay(rangeStart, rangeEnd){
 /* ================= RENDER ================= */
 
 const wrap=document.getElementById("wrap");
-
-// default Jan 2026
-let start = new Date(2026,0,1);
-start.setDate(1);
+let start = new Date(2026,0,1); start.setDate(1);
 
 function setMonthInput(){
-  document.getElementById("startMonth").value =
-    `${start.getFullYear()}-${pad(start.getMonth()+1)}`;
+  document.getElementById("startMonth").value = `${start.getFullYear()}-${pad(start.getMonth()+1)}`;
 }
 
 function render(){
   wrap.innerHTML="";
   const show=+document.getElementById("showMonths").value;
 
-  // compute for a range so HOL credits can land into later months
   const rangeStart = new Date(start.getFullYear(), start.getMonth(), 1);
   const rangeEnd = new Date(start.getFullYear(), start.getMonth()+12, 1);
   rangeEnd.setDate(rangeEnd.getDate()+180);
@@ -455,7 +444,7 @@ function drawMonth(d, computed){
 
   const t=document.createElement("table");
 
-  // Header row: day numbers (NO empty columns)
+  // day numbers (NO empty columns)
   let tr=document.createElement("tr");
   tr.className="hdrRow";
   tr.innerHTML = `<th class="name">NAME</th>`;
@@ -465,7 +454,7 @@ function drawMonth(d, computed){
   }
   t.appendChild(tr);
 
-  // Header row: DOW
+  // DOW
   tr=document.createElement("tr");
   tr.className="hdrRow";
   tr.innerHTML = `<th class="name"></th>`;
@@ -476,7 +465,7 @@ function drawMonth(d, computed){
   }
   t.appendChild(tr);
 
-  // People rows
+  // people rows
   PEOPLE.forEach((ppl, i)=>{
     const r=document.createElement("tr");
     r.className = (i%2===0) ? "r2" : "r1";
@@ -495,14 +484,13 @@ function drawMonth(d, computed){
 
       const base = baseM.get(di) || "";
       const display = dispM.get(di) || base;
-      td.dataset.code = base;
 
       if(display==="HOL"){
         td.classList.add("hol");
         td.textContent="HOL";
       } else {
         td.textContent=base;
-        // If this is a holiday date AND this person is the chosen B worker, mark it
+        // highlight chosen B workers (coverage) on holiday dates
         if(HOLIDAYS_2026.has(di) && base==="B" && bWork.has(di)){
           td.classList.add("bWorkHol");
         }
@@ -519,36 +507,19 @@ function drawMonth(d, computed){
   wrap.appendChild(panel);
 }
 
-/* ================= CONTROLS ================= */
-
+/* controls */
 document.getElementById("showMonths").addEventListener("change", ()=>{ setMonthInput(); render(); });
-
 document.getElementById("startMonth").addEventListener("change", (e)=>{
-  start = new Date(e.target.value + "-01");
-  start.setDate(1);
-  setMonthInput();
-  render();
+  start = new Date(e.target.value + "-01"); start.setDate(1); setMonthInput(); render();
 });
-
 document.getElementById("prev").addEventListener("click", ()=>{
-  start.setMonth(start.getMonth()-1);
-  start.setDate(1);
-  setMonthInput();
-  render();
+  start.setMonth(start.getMonth()-1); start.setDate(1); setMonthInput(); render();
 });
-
 document.getElementById("next").addEventListener("click", ()=>{
-  start.setMonth(start.getMonth()+1);
-  start.setDate(1);
-  setMonthInput();
-  render();
+  start.setMonth(start.getMonth()+1); start.setDate(1); setMonthInput(); render();
 });
-
 document.getElementById("today").addEventListener("click", ()=>{
-  const now=new Date();
-  start = new Date(now.getFullYear(), now.getMonth(), 1);
-  setMonthInput();
-  render();
+  const now=new Date(); start = new Date(now.getFullYear(), now.getMonth(), 1); setMonthInput(); render();
 });
 
 setMonthInput();
