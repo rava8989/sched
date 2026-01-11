@@ -3,26 +3,30 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Pure Schedule</title>
+<title>Pure Schedule – 2026</title>
 
 <style>
 :root{
   --grid:#6a6a6a;
 
   /* darkness scale */
-  --hdr9:#1a1a1a;   /* header row = 9/10 on WEEKDAYS only */
-  --sun7:#4d4d4d;   /* Sunday column = 7/10 */
-  --sat5:#7a7a7a;   /* Saturday column = 5/10 */
+  --hdr9:#1a1a1a;   /* header rows (weekday cells only) */
+  --sun7:#4d4d4d;   /* Sunday column */
+  --sat5:#7a7a7a;   /* Saturday column */
   --wk:#f6f6f6;     /* weekday column base */
 
-  /* row striping (weekdays only; NEVER overrides weekend columns) */
-  --row2:#e6e6e6;   /* first person row */
-  --row1:#f0f0f0;   /* second person row */
+  /* alternating rows (weekday cells only) */
+  --row2:#e6e6e6;
+  --row1:#f0f0f0;
 
   --holiday:#b30000;
 }
 
-body{ margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; background:#fff; }
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+  background:#fff;
+}
 
 header{
   position:sticky; top:0; z-index:20;
@@ -32,7 +36,10 @@ header{
 }
 
 .controls{
-  display:flex; gap:8px; flex-wrap:wrap; align-items:center;
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  align-items:center;
 }
 
 select,input,button{
@@ -43,7 +50,7 @@ select,input,button{
   background:#fff;
 }
 
-button{cursor:pointer}
+button{ cursor:pointer }
 
 .wrap{ padding:8px; }
 
@@ -85,6 +92,7 @@ th,td{
   font-weight:900;
 }
 
+/* sticky NAME only */
 th.name, td.name{
   position:sticky;
   left:0;
@@ -96,28 +104,30 @@ th.name, td.name{
   font-weight:900;
 }
 
-/* Column colors for BODY */
+/* column colors */
 .wkCol{ background:var(--wk) !important; color:#111; }
 .satCol{ background:var(--sat5) !important; color:#111; }
 .sunCol{ background:var(--sun7) !important; color:#fff; }
 
-/* Row striping affects ONLY weekday cells (never sat/sun) */
+/* row striping – weekday cells only */
 tr.r2 td.wkCol{ background:var(--row2) !important; }
 tr.r1 td.wkCol{ background:var(--row1) !important; }
 tr.r2 td.name{ background:var(--row2) !important; }
 tr.r1 td.name{ background:var(--row1) !important; }
 
-/* Header rows:
-   - weekdays: 9/10 dark
-   - weekends: keep weekend shades
-*/
+/* header rows:
+   weekday cells = 9 dark
+   weekend cells keep weekend shade */
 tr.hdrRow th.wkCol{ background:var(--hdr9) !important; color:#fff !important; }
 tr.hdrRow th.satCol{ background:var(--sat5) !important; color:#111 !important; }
 tr.hdrRow th.sunCol{ background:var(--sun7) !important; color:#fff !important; }
 tr.hdrRow th.name{ background:var(--hdr9) !important; color:#fff !important; }
 
-/* HOL red text (background stays column/row shaded) */
-td.hol{ color:var(--holiday) !important; font-weight:1000; }
+/* HOL */
+td.hol{
+  color:var(--holiday) !important;
+  font-weight:1000;
+}
 
 td.empty{ color:transparent !important; }
 
@@ -156,6 +166,7 @@ td.empty{ color:transparent !important; }
 const ANCHOR = "2026-01-01";
 const LOOP = 42;
 
+/* 6-week rotating patterns (unchanged) */
 const SLOTS = {
 1:["R","R","RDO","RDO","RDO","MDO","C","C/A","C","C","C","C","RDO","RDO","B","B","B","B","B","B","RDO","RDO","A","A","A","A","A/C","A","MDO","RDO","RDO","RDO","B","B","B","B","B","RDO","RDO","R","R","R"],
 2:["C/A","C","C","C","C","RDO","RDO","B","B","B","B","B","B","RDO","RDO","A","A","A","A","A/C","A","MDO","RDO","RDO","RDO","B","B","B","B","B","RDO","RDO","R","R","R","R","R","RDO","RDO","RDO","MDO","C"],
@@ -180,8 +191,22 @@ const PEOPLE=[
  {n:"Svenjak, Mark",s:6}
 ];
 
-/* Your holiday list (month-day). Corrected: Jan 19 (not 20). */
-const HOLIDAY_MD = ["01-01","01-19","02-17","05-26","06-19","06-03","06-06","09-01","10-13","11-11","11-27","11-28","12-25"];
+/* ===== HOLIDAYS – 2026 (FINAL, LOCKED) ===== */
+const HOLIDAYS_2026 = new Set([
+  "2026-01-01",
+  "2026-01-19",
+  "2026-02-17",
+  "2026-05-26",
+  "2026-06-19",
+  "2026-07-03",
+  "2026-07-06",
+  "2026-09-07",
+  "2026-10-13",
+  "2026-11-11",
+  "2026-11-27",
+  "2026-11-28",
+  "2026-12-25"
+]);
 
 /* ================= UTIL ================= */
 
@@ -194,230 +219,11 @@ function baseCode(slot, date){
   const di=Math.floor((date-a)/86400000);
   return SLOTS[slot][idx(di)];
 }
-function getBase(p, date){ return baseCode(p.s, date); }
 
 function colClassForDow(w){
   if(w===0) return "sunCol";
   if(w===6) return "satCol";
   return "wkCol";
-}
-function isWeekend(d){ const w=d.getDay(); return w===0 || w===6; }
-function isWeekday(d){ const w=d.getDay(); return w>=1 && w<=5; }
-function isDoubleCode(code){ return String(code).includes("/"); }
-function isWorkingAC(code){
-  // A, C, doubles like C/A, A/C count as working on the holiday day
-  return (code==="A" || code==="C" || isDoubleCode(code));
-}
-function isOffCode(code){ return code==="RDO" || code==="MDO"; }
-function isReserve(code){ return code==="R"; }
-
-/* Determine whether the person's contiguous B-run includes weekend (Sat/Sun) */
-function bRunIncludesWeekend(p, date, baseMap){
-  const di = iso(date);
-  if(baseMap.get(di) !== "B") return false;
-
-  // find start of contiguous B run
-  let start = new Date(date);
-  for(let i=0;i<10;i++){
-    const prev = new Date(start); prev.setDate(prev.getDate()-1);
-    if(baseMap.get(iso(prev)) !== "B") break;
-    start = prev;
-  }
-
-  // find end of contiguous B run
-  let end = new Date(date);
-  for(let i=0;i<10;i++){
-    const nxt = new Date(end); nxt.setDate(nxt.getDate()+1);
-    if(baseMap.get(iso(nxt)) !== "B") break;
-    end = nxt;
-  }
-
-  let cur = new Date(start);
-  while(cur <= end){
-    const w = cur.getDay();
-    if(w===0 || w===6) return true;
-    cur.setDate(cur.getDate()+1);
-  }
-  return false;
-}
-
-/* Build holiday set for any years in range */
-function buildHolidaySetForYears(years){
-  const s=new Set();
-  for(const y of years){
-    for(const md of HOLIDAY_MD){
-      s.add(`${y}-${md}`);
-    }
-  }
-  return s;
-}
-
-/* ================= HOLIDAY LOGIC (24/7 coverage) =================
-- A/C/doubles WORK holiday -> earn 1 HOL credit placed on next weekday base-B.
-- R never works holiday -> R becomes HOL ON THAT HOLIDAY DATE (no later credit).
-- RDO/MDO on holiday -> earn 1 HOL credit placed on next weekday base-B.
-- B coverage on weekday holidays:
-    Mon/Tue/Thu/Fri -> pick B workers whose B-run includes weekend (Thu–Tue group), take 2
-    Wed -> pick B workers whose B-run does NOT include weekend (Mon–Fri group), take 2
-  Weekend holidays -> whoever is base B that day works (usually 2)
-  Selected B workers WORK -> earn 1 HOL credit later
-  Non-selected B workers are OFF -> HOL on that holiday date (no later credit)
-*/
-
-function computeDisplayForRange(rangeStart, rangeEnd){
-  // years in range
-  const years=new Set();
-  for(let d=new Date(rangeStart); d<=rangeEnd; d.setDate(d.getDate()+1)){
-    years.add(d.getFullYear());
-  }
-  // include one extra year forward so "next weekday B" always still sees holiday set
-  years.add(rangeEnd.getFullYear()+1);
-
-  const HOL = buildHolidaySetForYears([...years]);
-
-  // base map per person
-  const baseMapByPerson = new Map(); // name -> Map(iso -> code)
-  for(const p of PEOPLE){
-    const m=new Map();
-    for(let d=new Date(rangeStart); d<=rangeEnd; d.setDate(d.getDate()+1)){
-      m.set(iso(d), getBase(p, d));
-    }
-    baseMapByPerson.set(p.n, m);
-  }
-
-  const holOnDate = new Map();  // name -> Set(iso) where display is HOL
-  const holCredits = new Map(); // name -> credits to place later
-  for(const p of PEOPLE){
-    holOnDate.set(p.n, new Set());
-    holCredits.set(p.n, 0);
-  }
-
-  function placeNextCredit(pName, fromISO){
-    const baseM = baseMapByPerson.get(pName);
-    const holS = holOnDate.get(pName);
-
-    let d = new Date(fromISO);
-    d.setDate(d.getDate()+1);
-
-    for(let i=0;i<120;i++){
-      const di = iso(d);
-      const code = baseM.get(di) || "";
-      if(isWeekday(d) && code==="B" && !holS.has(di)){
-        holS.add(di);
-        return true;
-      }
-      d.setDate(d.getDate()+1);
-    }
-    return false;
-  }
-
-  function pickBWorkersForHoliday(holidayDate){
-    const w = holidayDate.getDay();
-    const hISO = iso(holidayDate);
-
-    // candidates: base B on that date
-    const candidates = PEOPLE.filter(p => (baseMapByPerson.get(p.n).get(hISO) === "B"));
-
-    // weekend holiday -> whoever is B works
-    if(isWeekend(holidayDate)){
-      return new Set(candidates.map(p=>p.n));
-    }
-
-    const needWeekendGroup = (w===1 || w===2 || w===4 || w===5); // Mon Tue Thu Fri
-    const needWeekGroup = (w===3); // Wed
-
-    const match=[], other=[];
-    for(const p of candidates){
-      const includesWeekend = bRunIncludesWeekend(p, holidayDate, baseMapByPerson.get(p.n));
-      if(needWeekGroup){
-        (includesWeekend ? other : match).push(p);
-      } else if(needWeekendGroup){
-        (includesWeekend ? match : other).push(p);
-      } else {
-        match.push(p);
-      }
-    }
-
-    const sort = arr => arr.slice().sort((a,b)=> (a.s-b.s) || a.n.localeCompare(b.n));
-    const pick=[];
-    for(const p of sort(match)) if(pick.length<2) pick.push(p);
-    for(const p of sort(other)) if(pick.length<2) pick.push(p);
-
-    return new Set(pick.map(p=>p.n));
-  }
-
-  // holiday dates in range (chronological)
-  const holidayISOs=[];
-  for(let d=new Date(rangeStart); d<=rangeEnd; d.setDate(d.getDate()+1)){
-    const di=iso(d);
-    if(HOL.has(di)) holidayISOs.push(di);
-  }
-
-  for(const hISO of holidayISOs){
-    const hDate = new Date(hISO);
-    const bWorkers = pickBWorkersForHoliday(hDate);
-
-    for(const p of PEOPLE){
-      const code = baseMapByPerson.get(p.n).get(hISO) || "";
-
-      // R never works holiday -> becomes HOL on that holiday date
-      if(isReserve(code)){
-        holOnDate.get(p.n).add(hISO);
-        continue;
-      }
-
-      // Off code: holiday moves -> credit later
-      if(isOffCode(code)){
-        holCredits.set(p.n, holCredits.get(p.n)+1);
-        continue;
-      }
-
-      // A/C/doubles work -> credit later
-      if(isWorkingAC(code)){
-        holCredits.set(p.n, holCredits.get(p.n)+1);
-        continue;
-      }
-
-      // B logic
-      if(code==="B"){
-        if(bWorkers.has(p.n)){
-          holCredits.set(p.n, holCredits.get(p.n)+1); // works
-        } else {
-          holOnDate.get(p.n).add(hISO); // off that holiday
-        }
-        continue;
-      }
-
-      // default: treat as working -> credit later
-      holCredits.set(p.n, holCredits.get(p.n)+1);
-    }
-
-    // place credits ASAP after this holiday
-    for(const p of PEOPLE){
-      let c = holCredits.get(p.n);
-      while(c>0){
-        const placed = placeNextCredit(p.n, hISO);
-        if(!placed) break;
-        c--;
-      }
-      holCredits.set(p.n, c);
-    }
-  }
-
-  // final display map per person
-  const displayByPerson = new Map();
-  for(const p of PEOPLE){
-    const baseM = baseMapByPerson.get(p.n);
-    const holS = holOnDate.get(p.n);
-    const dispM = new Map();
-    for(let d=new Date(rangeStart); d<=rangeEnd; d.setDate(d.getDate()+1)){
-      const di=iso(d);
-      dispM.set(di, holS.has(di) ? "HOL" : (baseM.get(di)||""));
-    }
-    displayByPerson.set(p.n, dispM);
-  }
-
-  return { displayByPerson, baseMapByPerson, HOL };
 }
 
 /* ================= RENDER ================= */
@@ -429,29 +235,23 @@ let start = new Date(2026,0,1);
 start.setDate(1);
 
 function setMonthInput(){
-  document.getElementById("startMonth").value = `${start.getFullYear()}-${pad(start.getMonth()+1)}`;
+  document.getElementById("startMonth").value =
+    `${start.getFullYear()}-${pad(start.getMonth()+1)}`;
 }
 
 function render(){
   wrap.innerHTML="";
   const show=+document.getElementById("showMonths").value;
 
-  // Range for display + credit placement
-  const rangeStart = new Date(start.getFullYear(), start.getMonth(), 1);
-  const rangeEnd = new Date(start.getFullYear(), start.getMonth()+12, 1);
-  rangeEnd.setDate(rangeEnd.getDate()+120);
-
-  const computed = computeDisplayForRange(rangeStart, rangeEnd);
-
   for(let m=0;m<show;m++){
-    drawMonth(new Date(start.getFullYear(), start.getMonth()+m, 1), computed);
+    drawMonth(new Date(start.getFullYear(), start.getMonth()+m, 1));
   }
 }
 
-function drawMonth(d, computed){
+function drawMonth(d){
   const y=d.getFullYear(), m=d.getMonth();
   const dim=new Date(y,m+1,0).getDate();
-  const MAX_DAYS = 31; // symmetric tables
+  const MAX_DAYS = 31; // symmetric months
 
   const panel=document.createElement("div");
   panel.className="panel";
@@ -466,22 +266,21 @@ function drawMonth(d, computed){
 
   const t=document.createElement("table");
 
-  // header row (day numbers)
+  /* day numbers */
   let tr=document.createElement("tr");
   tr.className="hdrRow";
   tr.innerHTML = `<th class="name">NAME</th>`;
   for(let day=1; day<=MAX_DAYS; day++){
     if(day<=dim){
       const dt=new Date(y,m,day);
-      const cls=colClassForDow(dt.getDay());
-      tr.innerHTML += `<th class="${cls}">${day}</th>`;
-    } else {
+      tr.innerHTML += `<th class="${colClassForDow(dt.getDay())}">${day}</th>`;
+    }else{
       tr.innerHTML += `<th class="wkCol"></th>`;
     }
   }
   t.appendChild(tr);
 
-  // header row (DOW)
+  /* day of week */
   tr=document.createElement("tr");
   tr.className="hdrRow";
   tr.innerHTML = `<th class="name"></th>`;
@@ -489,52 +288,43 @@ function drawMonth(d, computed){
   for(let day=1; day<=MAX_DAYS; day++){
     if(day<=dim){
       const dt=new Date(y,m,day);
-      const cls=colClassForDow(dt.getDay());
-      tr.innerHTML += `<th class="${cls}">${dows[dt.getDay()]}</th>`;
-    } else {
+      tr.innerHTML += `<th class="${colClassForDow(dt.getDay())}">${dows[dt.getDay()]}</th>`;
+    }else{
       tr.innerHTML += `<th class="wkCol"></th>`;
     }
   }
   t.appendChild(tr);
 
-  // people rows
+  /* people rows */
   PEOPLE.forEach((ppl, i)=>{
     const r=document.createElement("tr");
     r.className = (i%2===0) ? "r2" : "r1";
     r.innerHTML = `<td class="name">${ppl.n}</td>`;
 
-    const dispM = computed.displayByPerson.get(ppl.n);
-    const baseM = computed.baseMapByPerson.get(ppl.n);
-
     for(let day=1; day<=MAX_DAYS; day++){
       if(day<=dim){
         const dt=new Date(y,m,day);
-        const cls = colClassForDow(dt.getDay());
-        const di = iso(dt);
-
-        const display = dispM.get(di) || "";
-        const baseCode = baseM.get(di) || "";
-
+        const di=iso(dt);
         const td=document.createElement("td");
-        td.className = cls;
-        td.dataset.code = baseCode;
+        td.className = colClassForDow(dt.getDay());
 
-        if(display === "HOL"){
+        const code = baseCode(ppl.s, dt);
+        td.dataset.code = code;
+
+        if(HOLIDAYS_2026.has(di)){
           td.classList.add("hol");
           td.textContent = "HOL";
-        } else {
-          td.textContent = baseCode;
+        }else{
+          td.textContent = code;
         }
-
         r.appendChild(td);
-      } else {
+      }else{
         const td=document.createElement("td");
         td.className="wkCol empty";
         td.textContent=".";
         r.appendChild(td);
       }
     }
-
     t.appendChild(r);
   });
 
