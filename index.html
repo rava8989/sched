@@ -7,27 +7,27 @@
 
 <style>
 :root{
-  /* softer grid + paper look */
+  /* grid + headers */
   --grid:#6a6a6a;
-  --hdr:#2f2f2f;
-  --hdr2:#3a3a3a;
 
-  /* column background shades (THIS is the big change) */
-  --wk:#f2f2f2;   /* weekdays: bright but not pure white */
-  --sat:#d3d3d3;  /* Saturday: gray */
-  --sun:#a9a9a9;  /* Sunday: darkest */
+  /* darkness scale (0=white, 10=black)
+     We implement using greys:
+     9/10 -> #1a1a1a
+     7/10 -> #4d4d4d
+     5/10 -> #7a7a7a
+     row 2/10 -> #e6e6e6
+     row 1/10 -> #f0f0f0
+     weekday base -> #f6f6f6
+  */
+  --hdr9:#1a1a1a;
 
-  /* cell colors (kept subtle so columns dominate like paper schedule) */
-  --a:#dcdcdc;
-  --b:#f7f7f7;
-  --c:#e3e3e3;
-  --r:#ededed;
+  --sun7:#4d4d4d;
+  --sat5:#7a7a7a;
 
-  --rdo:#1f1f1f;
-  --rdoInk:#fff;
+  --wk:#f6f6f6;
 
-  --mdo:#bfbfbf;
-  --mdoInk:#111;
+  --row2:#e6e6e6;
+  --row1:#f0f0f0;
 
   --holiday:#b30000;
 }
@@ -72,7 +72,7 @@ button{cursor:pointer}
 }
 
 .monthHeader{
-  background:var(--hdr);
+  background:var(--hdr9);
   color:#fff;
   padding:8px 12px;
   font-weight:900;
@@ -101,63 +101,58 @@ th,td{
   min-width:34px;
 }
 
-/* headers */
-th{
-  background:var(--hdr2);
-  color:#fff;
-  font-weight:800;
-}
-
-/* sticky NAME only (SLOT COLUMN REMOVED) */
+/* Sticky NAME only */
 th.name, td.name{
   position:sticky;
   left:0;
-  z-index:5;
+  z-index:6;
   text-align:left;
   padding:0 8px;
   min-width:190px;
-  background:#ececec;
   font-family:system-ui;
   font-weight:900;
 }
 
-/* column shading: weekdays / sat / sun */
-th.wk, td.wk{ background: var(--wk) !important; }
-th.sat, td.sat{ background: var(--sat) !important; }
-th.sun, td.sun{ background: var(--sun) !important; }
-
-/* base code fills (subtle so column shading still reads like paper) */
-td[data-code="A"]{ background: color-mix(in srgb, var(--a) 55%, transparent) !important; }
-td[data-code="B"]{ background: color-mix(in srgb, var(--b) 55%, transparent) !important; }
-td[data-code="C"]{ background: color-mix(in srgb, var(--c) 55%, transparent) !important; }
-td[data-code="R"]{ background: color-mix(in srgb, var(--r) 55%, transparent) !important; }
-
-/* keep OFF days strong like the paper schedule */
-td[data-code="RDO"]{
-  background: var(--rdo) !important;
-  color: var(--rdoInk) !important;
+/* Header rows (date + dow) = 9/10 dark */
+tr.hdrRow th{
+  background:var(--hdr9);
+  color:#fff;
   font-weight:900;
 }
-td[data-code="MDO"]{
-  background: var(--mdo) !important;
-  color: var(--mdoInk) !important;
-  font-weight:900;
+tr.hdrRow th.name{
+  background:var(--hdr9);
+  color:#fff;
 }
 
-/* doubles (C/A etc.) */
-td[data-code*="/"]{
-  background:#ffffff !important;
-  font-weight:1000;
-  box-shadow:inset 0 0 0 2px #000;
-}
+/* Column backgrounds (these win over row striping) */
+.wkCol{ background:var(--wk) !important; color:#111; }
+.satCol{ background:var(--sat5) !important; color:#111; }
+.sunCol{ background:var(--sun7) !important; color:#fff; }
 
-/* HOL red text (keep column shading) */
+/* Employee row striping for weekdays only.
+   We apply it ONLY to weekday cells, not weekend cells. */
+tr.r2 td.wkCol{ background:var(--row2) !important; }
+tr.r1 td.wkCol{ background:var(--row1) !important; }
+
+/* Name cell striping matches the row shade */
+tr.r2 td.name{ background:var(--row2) !important; }
+tr.r1 td.name{ background:var(--row1) !important; }
+
+/* Codes: keep simple (no heavy blocks). Just bold. */
+td{ font-weight:900; }
+
+/* HOL red text (keep background) */
 td.hol{
-  color: var(--holiday) !important;
+  color:var(--holiday) !important;
   font-weight:1000;
 }
 
-/* mobile */
+/* Make RDO/MDO NOT black — just bold like everything else */
+td[data-code="RDO"], td[data-code="MDO"]{
+  letter-spacing:0.2px;
+}
+
+/* Mobile tweaks */
 @media (max-width:700px){
   th.name, td.name{ min-width:150px; }
   table{ font-size:11px; }
@@ -217,7 +212,7 @@ const PEOPLE=[
  {n:"Svenjak, Mark",s:6}
 ];
 
-/* 2025 holidays (HOL shows red text on those dates) */
+/* 2025 holidays (red HOL text) */
 const HOL=new Set([
   "2025-01-01","2025-01-20","2025-02-17",
   "2025-05-26","2025-06-19","2025-06-03","2025-06-06",
@@ -235,6 +230,13 @@ function base(emp,date){
   const a=new Date(ANCHOR);
   const di=Math.floor((date-a)/86400000);
   return SLOTS[emp.s][idx(di)];
+}
+
+function colClassForDow(w){
+  // w: 0 Sun ... 6 Sat
+  if(w===0) return "sunCol";
+  if(w===6) return "satCol";
+  return "wkCol";
 }
 
 /* ================= RENDER ================= */
@@ -274,38 +276,40 @@ function drawMonth(d){
 
   const t=document.createElement("table");
 
-  // header row (day numbers)
+  // header row (day numbers) — same color across row (9/10 dark)
   let tr=document.createElement("tr");
+  tr.className="hdrRow";
   tr.innerHTML = `<th class="name">NAME</th>`;
   for(let day=1; day<=days; day++){
     const dt=new Date(y,m,day);
-    const w=dt.getDay();
-    const cls = (w===0) ? "sun" : (w===6 ? "sat" : "wk");
+    const cls=colClassForDow(dt.getDay());
     tr.innerHTML += `<th class="${cls}">${day}</th>`;
   }
   t.appendChild(tr);
 
-  // header row (DOW)
+  // header row (DOW) — same color across row (9/10 dark)
   tr=document.createElement("tr");
+  tr.className="hdrRow";
   tr.innerHTML = `<th class="name"></th>`;
   const dows=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   for(let day=1; day<=days; day++){
     const dt=new Date(y,m,day);
-    const w=dt.getDay();
-    const cls = (w===0) ? "sun" : (w===6 ? "sat" : "wk");
-    tr.innerHTML += `<th class="${cls}">${dows[w]}</th>`;
+    const cls=colClassForDow(dt.getDay());
+    tr.innerHTML += `<th class="${cls}">${dows[dt.getDay()]}</th>`;
   }
   t.appendChild(tr);
 
-  // people rows
-  for(const ppl of PEOPLE){
+  // people rows with striping 2/10 then 1/10 then repeat, BUT NOT overriding weekend columns
+  PEOPLE.forEach((ppl, i)=>{
     const r=document.createElement("tr");
+    r.className = (i%2===0) ? "r2" : "r1"; // first row 2/10, second 1/10
+
     r.innerHTML = `<td class="name">${ppl.n}</td>`;
 
     for(let day=1; day<=days; day++){
       const dt=new Date(y,m,day);
       const w=dt.getDay();
-      const cls = (w===0) ? "sun" : (w===6 ? "sat" : "wk");
+      const cls = colClassForDow(w);
 
       const code = base(ppl, dt);
       const isHol = HOL.has(iso(dt));
@@ -318,7 +322,7 @@ function drawMonth(d){
       r.appendChild(td);
     }
     t.appendChild(r);
-  }
+  });
 
   sc.appendChild(t);
   panel.appendChild(sc);
@@ -331,6 +335,7 @@ document.getElementById("showMonths").addEventListener("change", ()=>{ setMonthI
 
 document.getElementById("startMonth").addEventListener("change", (e)=>{
   start = new Date(e.target.value + "-01");
+  start.setDate(1);
   setMonthInput();
   render();
 });
