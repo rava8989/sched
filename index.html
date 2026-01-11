@@ -7,14 +7,28 @@
 
 <style>
 :root{
-  --grid:#444;
+  /* softer grid + paper look */
+  --grid:#6a6a6a;
   --hdr:#2f2f2f;
   --hdr2:#3a3a3a;
-  --sat:#dedede;
-  --sun:#c8c8c8;
+
+  /* column background shades (THIS is the big change) */
+  --wk:#f2f2f2;   /* weekdays: bright but not pure white */
+  --sat:#d3d3d3;  /* Saturday: gray */
+  --sun:#a9a9a9;  /* Sunday: darkest */
+
+  /* cell colors (kept subtle so columns dominate like paper schedule) */
+  --a:#dcdcdc;
+  --b:#f7f7f7;
+  --c:#e3e3e3;
+  --r:#ededed;
+
   --rdo:#1f1f1f;
   --rdoInk:#fff;
-  --mdo:#bdbdbd;
+
+  --mdo:#bfbfbf;
+  --mdoInk:#111;
+
   --holiday:#b30000;
 }
 
@@ -25,12 +39,10 @@ body{
 }
 
 header{
-  position:sticky;
-  top:0;
+  position:sticky; top:0; z-index:20;
   background:#fff;
   border-bottom:2px solid var(--grid);
   padding:8px;
-  z-index:20;
 }
 
 .controls{
@@ -50,9 +62,7 @@ select,input,button{
 
 button{cursor:pointer}
 
-.wrap{
-  padding:8px;
-}
+.wrap{ padding:8px; }
 
 .panel{
   border:2px solid var(--grid);
@@ -79,6 +89,8 @@ table{
   border-collapse:collapse;
   font-family:ui-monospace,Menlo,Consolas,monospace;
   font-size:12px;
+  width:max-content;
+  min-width:100%;
 }
 
 th,td{
@@ -89,61 +101,71 @@ th,td{
   min-width:34px;
 }
 
+/* headers */
 th{
   background:var(--hdr2);
   color:#fff;
   font-weight:800;
 }
 
+/* sticky NAME only (SLOT COLUMN REMOVED) */
 th.name, td.name{
   position:sticky;
   left:0;
-  background:#f0f0f0;
   z-index:5;
   text-align:left;
   padding:0 8px;
-  min-width:200px;
+  min-width:190px;
+  background:#ececec;
   font-family:system-ui;
-  font-weight:800;
-}
-
-th.slot, td.slot{
-  position:sticky;
-  left:200px;
-  background:#e6e6e6;
-  z-index:5;
-  min-width:70px;
-  font-family:system-ui;
-  font-weight:800;
-}
-
-td[data-code="RDO"]{
-  background:var(--rdo);
-  color:var(--rdoInk);
-}
-
-td[data-code="MDO"]{
-  background:var(--mdo);
-}
-
-td.sat{background:var(--sat)}
-td.sun{background:var(--sun)}
-
-td.hol{
-  color:var(--holiday);
   font-weight:900;
 }
 
+/* column shading: weekdays / sat / sun */
+th.wk, td.wk{ background: var(--wk) !important; }
+th.sat, td.sat{ background: var(--sat) !important; }
+th.sun, td.sun{ background: var(--sun) !important; }
+
+/* base code fills (subtle so column shading still reads like paper) */
+td[data-code="A"]{ background: color-mix(in srgb, var(--a) 55%, transparent) !important; }
+td[data-code="B"]{ background: color-mix(in srgb, var(--b) 55%, transparent) !important; }
+td[data-code="C"]{ background: color-mix(in srgb, var(--c) 55%, transparent) !important; }
+td[data-code="R"]{ background: color-mix(in srgb, var(--r) 55%, transparent) !important; }
+
+/* keep OFF days strong like the paper schedule */
+td[data-code="RDO"]{
+  background: var(--rdo) !important;
+  color: var(--rdoInk) !important;
+  font-weight:900;
+}
+td[data-code="MDO"]{
+  background: var(--mdo) !important;
+  color: var(--mdoInk) !important;
+  font-weight:900;
+}
+
+/* doubles (C/A etc.) */
+td[data-code*="/"]{
+  background:#ffffff !important;
+  font-weight:1000;
+  box-shadow:inset 0 0 0 2px #000;
+}
+
+/* HOL red text (keep column shading) */
+td.hol{
+  color: var(--holiday) !important;
+  font-weight:1000;
+}
+
+/* mobile */
 @media (max-width:700px){
-  th.name,td.name{min-width:150px}
-  th.slot,td.slot{min-width:60px}
-  table{font-size:11px}
+  th.name, td.name{ min-width:150px; }
+  table{ font-size:11px; }
 }
 </style>
 </head>
 
 <body>
-
 <header>
   <div class="controls">
     <label>Start Month
@@ -195,86 +217,146 @@ const PEOPLE=[
  {n:"Svenjak, Mark",s:6}
 ];
 
-/* 2025 holidays */
+/* 2025 holidays (HOL shows red text on those dates) */
 const HOL=new Set([
-"2025-01-01","2025-01-20","2025-02-17","2025-05-26",
-"2025-06-19","2025-06-03","2025-06-06","2025-09-01",
-"2025-10-13","2025-11-11","2025-11-27","2025-11-28","2025-12-25"
+  "2025-01-01","2025-01-20","2025-02-17",
+  "2025-05-26","2025-06-19","2025-06-03","2025-06-06",
+  "2025-09-01","2025-10-13","2025-11-11",
+  "2025-11-27","2025-11-28","2025-12-25"
 ]);
 
 /* ================= UTIL ================= */
 
-const $=id=>document.getElementById(id);
 const pad=n=>String(n).padStart(2,"0");
 const iso=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-const addDays=(d,n)=>{let x=new Date(d);x.setDate(x.getDate()+n);return x};
 const idx=i=>((i%LOOP)+LOOP)%LOOP;
 
 function base(emp,date){
   const a=new Date(ANCHOR);
-  return SLOTS[emp.s][idx(Math.floor((date-a)/86400000))];
+  const di=Math.floor((date-a)/86400000);
+  return SLOTS[emp.s][idx(di)];
 }
 
 /* ================= RENDER ================= */
 
+const wrap=document.getElementById("wrap");
+
 let start=new Date();
 start.setDate(1);
 
+function setMonthInput(){
+  document.getElementById("startMonth").value = `${start.getFullYear()}-${pad(start.getMonth()+1)}`;
+}
+
 function render(){
   wrap.innerHTML="";
-  for(let m=0;m<+$("showMonths").value;m++){
-    drawMonth(new Date(start.getFullYear(),start.getMonth()+m,1));
+  const show=+document.getElementById("showMonths").value;
+
+  for(let m=0;m<show;m++){
+    drawMonth(new Date(start.getFullYear(), start.getMonth()+m, 1));
   }
 }
 
 function drawMonth(d){
-  const y=d.getFullYear(),m=d.getMonth();
+  const y=d.getFullYear(), m=d.getMonth();
   const days=new Date(y,m+1,0).getDate();
 
-  const p=document.createElement("div");
-  p.className="panel";
-  p.innerHTML=`<div class="monthHeader">${d.toLocaleString("default",{month:"long"})} ${y}</div>`;
-  const sc=document.createElement("div");sc.className="scroll";
+  const panel=document.createElement("div");
+  panel.className="panel";
+
+  const header=document.createElement("div");
+  header.className="monthHeader";
+  header.textContent = `${d.toLocaleString("default",{month:"long"})} ${y}`;
+  panel.appendChild(header);
+
+  const sc=document.createElement("div");
+  sc.className="scroll";
+
   const t=document.createElement("table");
 
+  // header row (day numbers)
   let tr=document.createElement("tr");
-  tr.innerHTML=`<th class="name">NAME</th><th class="slot">SLOT</th>`;
-  for(let i=1;i<=days;i++) tr.innerHTML+=`<th>${i}</th>`;
+  tr.innerHTML = `<th class="name">NAME</th>`;
+  for(let day=1; day<=days; day++){
+    const dt=new Date(y,m,day);
+    const w=dt.getDay();
+    const cls = (w===0) ? "sun" : (w===6 ? "sat" : "wk");
+    tr.innerHTML += `<th class="${cls}">${day}</th>`;
+  }
   t.appendChild(tr);
 
-  PEOPLE.forEach(ppl=>{
-    let r=document.createElement("tr");
-    r.innerHTML=`<td class="name">${ppl.n}</td><td class="slot">Slot ${ppl.s}</td>`;
-    for(let i=1;i<=days;i++){
-      let date=new Date(y,m,i);
-      let code=base(ppl,date);
-      let cls="";
-      if(date.getDay()==6) cls="sat";
-      if(date.getDay()==0) cls="sun";
-      if(HOL.has(iso(date))) cls+=" hol";
-      r.innerHTML+=`<td class="${cls}" data-code="${code}">${HOL.has(iso(date))?"HOL":code}</td>`;
+  // header row (DOW)
+  tr=document.createElement("tr");
+  tr.innerHTML = `<th class="name"></th>`;
+  const dows=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  for(let day=1; day<=days; day++){
+    const dt=new Date(y,m,day);
+    const w=dt.getDay();
+    const cls = (w===0) ? "sun" : (w===6 ? "sat" : "wk");
+    tr.innerHTML += `<th class="${cls}">${dows[w]}</th>`;
+  }
+  t.appendChild(tr);
+
+  // people rows
+  for(const ppl of PEOPLE){
+    const r=document.createElement("tr");
+    r.innerHTML = `<td class="name">${ppl.n}</td>`;
+
+    for(let day=1; day<=days; day++){
+      const dt=new Date(y,m,day);
+      const w=dt.getDay();
+      const cls = (w===0) ? "sun" : (w===6 ? "sat" : "wk");
+
+      const code = base(ppl, dt);
+      const isHol = HOL.has(iso(dt));
+
+      const td=document.createElement("td");
+      td.className = cls + (isHol ? " hol" : "");
+      td.dataset.code = code;
+      td.textContent = isHol ? "HOL" : code;
+
+      r.appendChild(td);
     }
     t.appendChild(r);
-  });
+  }
 
   sc.appendChild(t);
-  p.appendChild(sc);
-  wrap.appendChild(p);
+  panel.appendChild(sc);
+  wrap.appendChild(panel);
 }
 
 /* ================= CONTROLS ================= */
 
-$("startMonth").value=`${start.getFullYear()}-${pad(start.getMonth()+1)}`;
+document.getElementById("showMonths").addEventListener("change", ()=>{ setMonthInput(); render(); });
 
-$("startMonth").onchange=e=>{
-  start=new Date(e.target.value+"-01");
+document.getElementById("startMonth").addEventListener("change", (e)=>{
+  start = new Date(e.target.value + "-01");
+  setMonthInput();
   render();
-};
-$("prev").onclick=()=>{start.setMonth(start.getMonth()-1);render()};
-$("next").onclick=()=>{start.setMonth(start.getMonth()+1);render()};
-$("today").onclick=()=>{start=new Date();start.setDate(1);render()};
-$("showMonths").onchange=render;
+});
 
+document.getElementById("prev").addEventListener("click", ()=>{
+  start.setMonth(start.getMonth()-1);
+  start.setDate(1);
+  setMonthInput();
+  render();
+});
+
+document.getElementById("next").addEventListener("click", ()=>{
+  start.setMonth(start.getMonth()+1);
+  start.setDate(1);
+  setMonthInput();
+  render();
+});
+
+document.getElementById("today").addEventListener("click", ()=>{
+  start = new Date();
+  start.setDate(1);
+  setMonthInput();
+  render();
+});
+
+setMonthInput();
 render();
 </script>
 </body>
