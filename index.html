@@ -246,8 +246,8 @@ function computeDisplay(rangeStart, rangeEnd){
     const base=baseMaps.get(name), hols=holMap.get(name);
     for(let i=0;i<200;i++){
       const di=isoUTC(d);
-      if(HOLIDAYS_2026.has(di)){ d=addDaysUTC(d,1); continue; }
-      if(isWeekday(d)&&base.get(di)==="B"&&!hols.has(di)){
+      if(HOLIDAYS_2026.has(di)){ d=addDaysUTC(d,1); continue; } // never place HOL on a holiday date
+      if(isWeekday(d) && base.get(di)==="B" && !hols.has(di)){
         hols.add(di); return true;
       }
       d=addDaysUTC(d,1);
@@ -258,16 +258,16 @@ function computeDisplay(rangeStart, rangeEnd){
   function pickBWorkers(hDate){
     const di=isoUTC(hDate), dow=dowUTC(hDate);
     const cands=PEOPLE.filter(p=>baseMaps.get(p.n).get(di)==="B");
-    if(isWeekend(hDate)) return new Set(cands.map(p=>p.n));
+    if(isWeekend(hDate)) return new Set(cands.map(p=>p.n)); // weekend holiday: base-B covers
 
-    const wantWeekend=(dow===1||dow===2||dow===4||dow===5);
+    const wantWeekend=(dow===1||dow===2||dow===4||dow===5); // Mon Tue Thu Fri -> Thu–Tue group
     const match=[],other=[];
     cands.forEach(p=>{
       const inc=bRunIncludesWeekend(hDate,baseMaps.get(p.n));
       (wantWeekend?inc:!inc)?match.push(p):other.push(p);
     });
 
-    const pick=[...match,...other].slice(0,2);
+    const pick=[...match,...other].slice(0,2); // exactly 2 weekday holiday B workers
     return new Set(pick.map(p=>p.n));
   }
 
@@ -279,14 +279,15 @@ function computeDisplay(rangeStart, rangeEnd){
 
     PEOPLE.forEach(p=>{
       const code=baseMaps.get(p.n).get(di);
-      if(isReserve(code)) holMap.get(p.n).add(di);
-      else if(isOff(code)||isAC(code)) credits.set(p.n,credits.get(p.n)+1);
+      if(isReserve(code)) holMap.get(p.n).add(di);                      // R never works holiday
+      else if(isOff(code) || isAC(code)) credits.set(p.n,credits.get(p.n)+1); // works/offs -> credit later
       else if(code==="B"){
-        if(bWorkers.has(p.n)) credits.set(p.n,credits.get(p.n)+1);
-        else holMap.get(p.n).add(di);
+        if(bWorkers.has(p.n)) credits.set(p.n,credits.get(p.n)+1);      // B works holiday -> credit later
+        else holMap.get(p.n).add(di);                                   // B off holiday
       }
     });
 
+    // place credits after this holiday
     PEOPLE.forEach(p=>{
       let c=credits.get(p.n);
       while(c>0){ if(!placeCredit(p.n,di)) break; c--; }
@@ -310,11 +311,26 @@ function computeDisplay(rangeStart, rangeEnd){
 /* ================= RENDER ================= */
 
 const wrap=document.getElementById("wrap");
-let startUTC=makeUTC(2026,0,1);
+const startMonthEl=document.getElementById("startMonth");
+
+/* ALWAYS start from CURRENT month (UTC) */
+function currentMonthUTC(){
+  const now = new Date();
+  return makeUTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
+}
+let startUTC = currentMonthUTC();
+
+/* If current month is before Jan 2026, still start at current month,
+   but schedule pattern itself is anchored to Jan 1, 2026 as requested. */
+
+function setStartMonthInputFromStartUTC(){
+  startMonthEl.value = `${startUTC.getUTCFullYear()}-${pad(startUTC.getUTCMonth()+1)}`;
+}
 
 function render(){
   wrap.innerHTML="";
   const months=+document.getElementById("showMonths").value;
+
   const rs=makeUTC(startUTC.getUTCFullYear(),startUTC.getUTCMonth(),1);
   const re=addDaysUTC(makeUTC(startUTC.getUTCFullYear(),startUTC.getUTCMonth()+12,1),200);
   const comp=computeDisplay(rs,re);
@@ -329,17 +345,20 @@ function render(){
     const sc=document.createElement("div"); sc.className="scroll";
     const t=document.createElement("table");
 
+    // date row
     let tr=document.createElement("tr"); tr.className="hdrRow";
     tr.innerHTML=`<th class="name">NAME</th>`;
     for(let d=1;d<=days;d++){ tr.innerHTML+=`<th>${d}</th>`; }
     t.appendChild(tr);
 
+    // dow row
     tr=document.createElement("tr"); tr.className="hdrRow";
     tr.innerHTML=`<th class="name"></th>`;
     const dows=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
     for(let d=1;d<=days;d++){ tr.innerHTML+=`<th>${dows[dowUTC(makeUTC(y,m,d))]}</th>`; }
     t.appendChild(tr);
 
+    // people rows
     PEOPLE.forEach((p,i)=>{
       const r=document.createElement("tr"); r.className=i%2?"r1":"r2";
       r.innerHTML=`<td class="name">${p.n}</td>`;
@@ -359,11 +378,39 @@ function render(){
   }
 }
 
-document.getElementById("showMonths").onchange=render;
-document.getElementById("prev").onclick=()=>{ startUTC=makeUTC(startUTC.getUTCFullYear(),startUTC.getUTCMonth()-1,1); render(); };
-document.getElementById("next").onclick=()=>{ startUTC=makeUTC(startUTC.getUTCFullYear(),startUTC.getUTCMonth()+1,1); render(); };
-document.getElementById("today").onclick=()=>{ const n=new Date(); startUTC=makeUTC(n.getUTCFullYear(),n.getUTCMonth(),1); render(); };
+/* ================= CONTROLS ================= */
 
+document.getElementById("showMonths").onchange=()=>{ setStartMonthInputFromStartUTC(); render(); };
+
+document.getElementById("prev").onclick=()=>{
+  startUTC = makeUTC(startUTC.getUTCFullYear(), startUTC.getUTCMonth()-1, 1);
+  setStartMonthInputFromStartUTC();
+  render();
+};
+
+document.getElementById("next").onclick=()=>{
+  startUTC = makeUTC(startUTC.getUTCFullYear(), startUTC.getUTCMonth()+1, 1);
+  setStartMonthInputFromStartUTC();
+  render();
+};
+
+document.getElementById("today").onclick=()=>{
+  startUTC = currentMonthUTC();
+  setStartMonthInputFromStartUTC();
+  render();
+};
+
+/* manual month picker */
+startMonthEl.onchange=(e)=>{
+  const [yy,mm]=e.target.value.split("-").map(Number);
+  startUTC = makeUTC(yy, mm-1, 1);
+  setStartMonthInputFromStartUTC();
+  render();
+};
+
+/* init */
+startUTC = currentMonthUTC();     // <-- always start from current month
+setStartMonthInputFromStartUTC();
 render();
 </script>
 </body>
