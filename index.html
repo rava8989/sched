@@ -7,36 +7,22 @@
 
 <style>
 :root{
-  /* grid + headers */
+  /* grid */
   --grid:#6a6a6a;
 
-  /* darkness scale (0=white, 10=black)
-     We implement using greys:
-     9/10 -> #1a1a1a
-     7/10 -> #4d4d4d
-     5/10 -> #7a7a7a
-     row 2/10 -> #e6e6e6
-     row 1/10 -> #f0f0f0
-     weekday base -> #f6f6f6
-  */
-  --hdr9:#1a1a1a;
+  /* darkness scale look */
+  --hdr9:#1a1a1a;   /* 9/10 */
+  --sun7:#4d4d4d;   /* 7/10 */
+  --sat5:#7a7a7a;   /* 5/10 */
+  --wk:#f6f6f6;     /* bright weekdays */
 
-  --sun7:#4d4d4d;
-  --sat5:#7a7a7a;
-
-  --wk:#f6f6f6;
-
-  --row2:#e6e6e6;
-  --row1:#f0f0f0;
+  --row2:#e6e6e6;   /* 2/10-ish */
+  --row1:#f0f0f0;   /* 1/10-ish */
 
   --holiday:#b30000;
 }
 
-body{
-  margin:0;
-  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
-  background:#fff;
-}
+body{ margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; background:#fff; }
 
 header{
   position:sticky; top:0; z-index:20;
@@ -46,10 +32,7 @@ header{
 }
 
 .controls{
-  display:flex;
-  gap:8px;
-  flex-wrap:wrap;
-  align-items:center;
+  display:flex; gap:8px; flex-wrap:wrap; align-items:center;
 }
 
 select,input,button{
@@ -99,9 +82,10 @@ th,td{
   padding:0;
   height:28px;
   min-width:34px;
+  font-weight:900;
 }
 
-/* Sticky NAME only */
+/* sticky NAME only */
 th.name, td.name{
   position:sticky;
   left:0;
@@ -113,46 +97,45 @@ th.name, td.name{
   font-weight:900;
 }
 
-/* Header rows (date + dow) = 9/10 dark */
-tr.hdrRow th{
-  background:var(--hdr9);
-  color:#fff;
-  font-weight:900;
-}
-tr.hdrRow th.name{
-  background:var(--hdr9);
-  color:#fff;
-}
-
-/* Column backgrounds (these win over row striping) */
+/* ===== COLUMN COLORS (schedule body) ===== */
 .wkCol{ background:var(--wk) !important; color:#111; }
 .satCol{ background:var(--sat5) !important; color:#111; }
 .sunCol{ background:var(--sun7) !important; color:#fff; }
 
-/* Employee row striping for weekdays only.
-   We apply it ONLY to weekday cells, not weekend cells. */
+/* row striping only affects weekday columns (never weekend columns) */
 tr.r2 td.wkCol{ background:var(--row2) !important; }
 tr.r1 td.wkCol{ background:var(--row1) !important; }
 
-/* Name cell striping matches the row shade */
 tr.r2 td.name{ background:var(--row2) !important; }
 tr.r1 td.name{ background:var(--row1) !important; }
 
-/* Codes: keep simple (no heavy blocks). Just bold. */
-td{ font-weight:900; }
+/* ===== HEADER ROWS =====
+   - weekdays: 9-dark
+   - weekends: keep weekend colors (Sat=5, Sun=7)
+*/
+tr.hdrRow th.wkCol{
+  background:var(--hdr9) !important;
+  color:#fff !important;
+}
+tr.hdrRow th.satCol{
+  background:var(--sat5) !important;
+  color:#111 !important;
+}
+tr.hdrRow th.sunCol{
+  background:var(--sun7) !important;
+  color:#fff !important;
+}
+tr.hdrRow th.name{
+  background:var(--hdr9) !important;
+  color:#fff !important;
+}
 
-/* HOL red text (keep background) */
+/* HOL red text (do not change background) */
 td.hol{
   color:var(--holiday) !important;
   font-weight:1000;
 }
 
-/* Make RDO/MDO NOT black — just bold like everything else */
-td[data-code="RDO"], td[data-code="MDO"]{
-  letter-spacing:0.2px;
-}
-
-/* Mobile tweaks */
 @media (max-width:700px){
   th.name, td.name{ min-width:150px; }
   table{ font-size:11px; }
@@ -212,13 +195,23 @@ const PEOPLE=[
  {n:"Svenjak, Mark",s:6}
 ];
 
-/* 2025 holidays (red HOL text) */
-const HOL=new Set([
-  "2025-01-01","2025-01-20","2025-02-17",
-  "2025-05-26","2025-06-19","2025-06-03","2025-06-06",
-  "2025-09-01","2025-10-13","2025-11-11",
-  "2025-11-27","2025-11-28","2025-12-25"
-]);
+/* Your 2025 holiday dates (month-day list) */
+const HOLIDAY_MD = [
+  "01-01","01-20","02-17","05-26","06-19","06-03","06-06",
+  "09-01","10-13","11-11","11-27","11-28","12-25"
+];
+
+/* Build holidays for BOTH 2025 and 2026 so you actually see them in 2026 view */
+function buildHolidaySet(years){
+  const set = new Set();
+  for(const y of years){
+    for(const md of HOLIDAY_MD){
+      set.add(`${y}-${md}`);
+    }
+  }
+  return set;
+}
+const HOL = buildHolidaySet([2025, 2026, 2027]); // include extra year so 12mo forward always shows
 
 /* ================= UTIL ================= */
 
@@ -233,7 +226,6 @@ function base(emp,date){
 }
 
 function colClassForDow(w){
-  // w: 0 Sun ... 6 Sat
   if(w===0) return "sunCol";
   if(w===6) return "satCol";
   return "wkCol";
@@ -243,7 +235,7 @@ function colClassForDow(w){
 
 const wrap=document.getElementById("wrap");
 
-let start=new Date();
+let start = new Date(2026,0,1); // default Jan 2026
 start.setDate(1);
 
 function setMonthInput(){
@@ -276,7 +268,7 @@ function drawMonth(d){
 
   const t=document.createElement("table");
 
-  // header row (day numbers) — same color across row (9/10 dark)
+  // header row (day numbers) — weekdays 9 dark, weekends keep weekend shade
   let tr=document.createElement("tr");
   tr.className="hdrRow";
   tr.innerHTML = `<th class="name">NAME</th>`;
@@ -287,7 +279,7 @@ function drawMonth(d){
   }
   t.appendChild(tr);
 
-  // header row (DOW) — same color across row (9/10 dark)
+  // header row (DOW)
   tr=document.createElement("tr");
   tr.className="hdrRow";
   tr.innerHTML = `<th class="name"></th>`;
@@ -299,10 +291,10 @@ function drawMonth(d){
   }
   t.appendChild(tr);
 
-  // people rows with striping 2/10 then 1/10 then repeat, BUT NOT overriding weekend columns
+  // people rows with striping 2 then 1 (weekdays only)
   PEOPLE.forEach((ppl, i)=>{
     const r=document.createElement("tr");
-    r.className = (i%2===0) ? "r2" : "r1"; // first row 2/10, second 1/10
+    r.className = (i%2===0) ? "r2" : "r1";
 
     r.innerHTML = `<td class="name">${ppl.n}</td>`;
 
