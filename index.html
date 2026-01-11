@@ -112,8 +112,16 @@ tr.hdrRow th.satCol{ background:var(--sat5) !important; color:#111 !important; }
 tr.hdrRow th.sunCol{ background:var(--sun7) !important; color:#fff !important; }
 tr.hdrRow th.name{ background:var(--hdr9) !important; color:#fff !important; }
 
-/* HOL red text (background stays) */
-td.hol{ color:var(--holiday) !important; font-weight:1000; }
+/* HOL (off day) */
+td.hol{
+  color:var(--holiday) !important;
+  font-weight:1000;
+}
+
+/* B WORKING on a holiday (still shows B, just a subtle mark so you can SEE coverage) */
+td.bWorkHol{
+  box-shadow: inset 0 -3px 0 var(--holiday);
+}
 
 @media (max-width:700px){
   th.name, td.name{ min-width:150px; }
@@ -215,21 +223,19 @@ function colClassForDow(w){
   return "wkCol";
 }
 
-/* Determine contiguous B-run includes weekend? (used to pick weekday-holiday B workers) */
+/* contiguous B-run includes weekend? */
 function bRunIncludesWeekend(person, date, baseMap){
   const di = iso(date);
   if(baseMap.get(di) !== "B") return false;
 
-  // find start of run
   let s = new Date(date);
-  for(let i=0;i<10;i++){
+  for(let i=0;i<14;i++){
     const p = new Date(s); p.setDate(p.getDate()-1);
     if(baseMap.get(iso(p)) !== "B") break;
     s = p;
   }
-  // find end of run
   let e = new Date(date);
-  for(let i=0;i<10;i++){
+  for(let i=0;i<14;i++){
     const n = new Date(e); n.setDate(n.getDate()+1);
     if(baseMap.get(iso(n)) !== "B") break;
     e = n;
@@ -242,24 +248,11 @@ function bRunIncludesWeekend(person, date, baseMap){
   return false;
 }
 
-/* ================= HOLIDAY LOGIC (your rules) =================
-For each holiday date:
-- R NEVER works holiday -> that day becomes HOL for R (no credit later)
-- A/C/doubles ALWAYS work holiday -> no HOL on that day; they earn 1 HOL credit placed on first WEEKDAY B after
-- If holiday falls on RDO/MDO -> they earn 1 HOL credit placed on first WEEKDAY B after
-- B coverage:
-    * Weekend holiday -> base B workers that day work; they earn 1 HOL credit later
-    * Weekday holiday:
-        - Mon/Tue/Thu/Fri: pick 2 base-B workers whose B-run includes weekend (Thu–Tue group)
-        - Wed: pick 2 base-B workers whose B-run does NOT include weekend (Mon–Fri group)
-      picked B workers work -> credit later
-      other base-B workers are OFF -> HOL on that holiday date (no later credit)
-HOL credits are placed as soon as possible after that holiday, on the person’s first WEEKDAY base-B date.
-*/
+/* ================= HOLIDAY LOGIC (your rules) ================= */
 
 function computeDisplay(rangeStart, rangeEnd){
   // base maps per person
-  const baseMapByPerson = new Map(); // name -> Map(iso->code)
+  const baseMapByPerson = new Map();
   for(const p of PEOPLE){
     const m=new Map();
     for(let d=new Date(rangeStart); d<=rangeEnd; d.setDate(d.getDate()+1)){
@@ -268,11 +261,13 @@ function computeDisplay(rangeStart, rangeEnd){
     baseMapByPerson.set(p.n, m);
   }
 
-  const holOnDate = new Map();   // name -> Set(iso) display HOL
-  const credits   = new Map();   // name -> number
+  const holOnDate = new Map();      // HOL shown on that date
+  const credits   = new Map();      // HOL to be placed later
+  const bWorkOnHoliday = new Map(); // name -> Set(holidayISO) where B is WORKING that holiday
   for(const p of PEOPLE){
     holOnDate.set(p.n, new Set());
     credits.set(p.n, 0);
+    bWorkOnHoliday.set(p.n, new Set());
   }
 
   function placeCredit(name, fromISO){
@@ -282,7 +277,7 @@ function computeDisplay(rangeStart, rangeEnd){
     const d = new Date(fromISO);
     d.setDate(d.getDate()+1);
 
-    for(let i=0;i<120;i++){
+    for(let i=0;i<180;i++){
       const di=iso(d);
       const code=baseM.get(di)||"";
       if(isWeekday(d) && code==="B" && !holS.has(di)){
@@ -298,10 +293,9 @@ function computeDisplay(rangeStart, rangeEnd){
     const hISO = iso(holidayDate);
     const dow = holidayDate.getDay();
 
-    // candidates base B on that holiday date
     const candidates = PEOPLE.filter(p => baseMapByPerson.get(p.n).get(hISO)==="B");
 
-    // weekend holiday: whoever is B works (usually 2)
+    // weekend holiday: whoever is base B works
     if(isWeekend(holidayDate)){
       return new Set(candidates.map(p=>p.n));
     }
@@ -313,18 +307,28 @@ function computeDisplay(rangeStart, rangeEnd){
     for(const p of candidates){
       const incWeekend = bRunIncludesWeekend(p, holidayDate, baseMapByPerson.get(p.n));
       if(needWeekGroup){
-        (incWeekend ? other : match).push(p); // Wed wants Mon–Fri (no weekend)
+        (incWeekend ? other : match).push(p); // Wed wants Mon–Fri
       } else if(needWeekendGroup){
-        (incWeekend ? match : other).push(p); // Mon/Tue/Thu/Fri wants Thu–Tue (includes weekend)
+        (incWeekend ? match : other).push(p); // Mon/Tue/Thu/Fri wants Thu–Tue
       } else {
         match.push(p);
       }
     }
 
     const sort = arr => arr.slice().sort((a,b)=> (a.s-b.s) || a.n.localeCompare(b.n));
+
     const pick=[];
     for(const p of sort(match)) if(pick.length<2) pick.push(p);
     for(const p of sort(other)) if(pick.length<2) pick.push(p);
+
+    // HARD FAILSAFE: if we still have <2, take first candidates so B is ALWAYS covered
+    if(pick.length<2){
+      for(const p of sort(candidates)){
+        if(pick.find(x=>x.n===p.n)) continue;
+        pick.push(p);
+        if(pick.length===2) break;
+      }
+    }
 
     return new Set(pick.map(p=>p.n));
   }
@@ -344,26 +348,30 @@ function computeDisplay(rangeStart, rangeEnd){
       const code = baseMapByPerson.get(p.n).get(hISO) || "";
 
       if(isReserve(code)){
-        // R never works holiday -> HOL that day
+        // R never works holiday -> HOL on the holiday date
         holOnDate.get(p.n).add(hISO);
         continue;
       }
+
       if(isOff(code)){
-        // RDO/MDO on holiday -> moves to next weekday B
+        // holiday landed on RDO/MDO -> moves to next weekday B
         credits.set(p.n, credits.get(p.n)+1);
         continue;
       }
+
       if(isACWork(code)){
         // A/C/doubles work holiday -> credit later
         credits.set(p.n, credits.get(p.n)+1);
         continue;
       }
+
       if(code==="B"){
         if(bWorkers.has(p.n)){
-          // works holiday -> credit later
-          credits.set(p.n, credits.get(p.n)+1);
+          // B WORKING the holiday (coverage)
+          bWorkOnHoliday.get(p.n).add(hISO);
+          credits.set(p.n, credits.get(p.n)+1); // gets HOL later
         } else {
-          // off holiday that day -> HOL on holiday date
+          // B OFF the holiday -> HOL on holiday date
           holOnDate.get(p.n).add(hISO);
         }
         continue;
@@ -386,7 +394,7 @@ function computeDisplay(rangeStart, rangeEnd){
   }
 
   // final display maps
-  const displayByPerson = new Map(); // name -> Map(iso->displayText)
+  const displayByPerson = new Map();
   for(const p of PEOPLE){
     const baseM = baseMapByPerson.get(p.n);
     const holS  = holOnDate.get(p.n);
@@ -398,7 +406,7 @@ function computeDisplay(rangeStart, rangeEnd){
     displayByPerson.set(p.n, disp);
   }
 
-  return { baseMapByPerson, displayByPerson };
+  return { baseMapByPerson, displayByPerson, bWorkOnHoliday };
 }
 
 /* ================= RENDER ================= */
@@ -418,10 +426,10 @@ function render(){
   wrap.innerHTML="";
   const show=+document.getElementById("showMonths").value;
 
-  // compute for a range so HOL credits can land into later months you’re viewing
+  // compute for a range so HOL credits can land into later months
   const rangeStart = new Date(start.getFullYear(), start.getMonth(), 1);
   const rangeEnd = new Date(start.getFullYear(), start.getMonth()+12, 1);
-  rangeEnd.setDate(rangeEnd.getDate()+120);
+  rangeEnd.setDate(rangeEnd.getDate()+180);
 
   const computed = computeDisplay(rangeStart, rangeEnd);
 
@@ -447,7 +455,7 @@ function drawMonth(d, computed){
 
   const t=document.createElement("table");
 
-  // Header row: day numbers (NO empty columns; stops at last day)
+  // Header row: day numbers (NO empty columns)
   let tr=document.createElement("tr");
   tr.className="hdrRow";
   tr.innerHTML = `<th class="name">NAME</th>`;
@@ -476,6 +484,7 @@ function drawMonth(d, computed){
 
     const dispM = computed.displayByPerson.get(ppl.n);
     const baseM = computed.baseMapByPerson.get(ppl.n);
+    const bWork = computed.bWorkOnHoliday.get(ppl.n);
 
     for(let day=1; day<=daysInMonth; day++){
       const dt=new Date(y,m,day);
@@ -486,7 +495,6 @@ function drawMonth(d, computed){
 
       const base = baseM.get(di) || "";
       const display = dispM.get(di) || base;
-
       td.dataset.code = base;
 
       if(display==="HOL"){
@@ -494,7 +502,12 @@ function drawMonth(d, computed){
         td.textContent="HOL";
       } else {
         td.textContent=base;
+        // If this is a holiday date AND this person is the chosen B worker, mark it
+        if(HOLIDAYS_2026.has(di) && base==="B" && bWork.has(di)){
+          td.classList.add("bWorkHol");
+        }
       }
+
       r.appendChild(td);
     }
 
