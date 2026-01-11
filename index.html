@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="en">
 <head>
@@ -7,37 +6,85 @@
   <title>Pure Schedule</title>
   <style>
     :root{
-      --bg:#fff; --ink:#111; --muted:#666; --grid:#111;
-      --hdr:#2b2b2b; --hdr2:#3a3a3a;
-      --a:#cfcfcf; --b:#f8f8f8; --c:#dedede;
-      --rdo:#1f1f1f; --rdoInk:#fff;
-      --mdo:#bfbfbf; --mdoInk:#111;
+      --bg:#ffffff;
+      --ink:#111;
+      --muted:#666;
+
+      /* paper-like grid + headers (less harsh than black) */
+      --grid:#3a3a3a;
+      --hdr:#262626;
+      --hdr2:#323232;
+
+      /* base cell fills (close to your photo) */
+      --a:#d0d0d0;   /* A */
+      --b:#f5f5f5;   /* B */
+      --c:#dedede;   /* C */
+      --r:#e6e6e6;   /* R */
+
+      /* weekend shading */
+      --sat:#d6d6d6; /* Saturday */
+      --sun:#bfbfbf; /* Sunday */
+
+      /* dark RDO cell */
+      --rdo:#2a2a2a;
+      --rdoInk:#fff;
+
+      /* MDO cell */
+      --mdo:#bfbfbf;
+      --mdoInk:#111;
+
+      --holidayRed:#b30000;
+
       --shadow:0 2px 10px rgba(0,0,0,.08);
       --radius:10px;
       --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
       --sans: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
     }
+
     html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);}
-    .topbar{position:sticky;top:0;z-index:50;background:var(--bg);border-bottom:2px solid var(--grid);padding:10px 12px;}
+
+    .topbar{
+      position:sticky;top:0;z-index:50;background:var(--bg);
+      border-bottom:2px solid var(--grid);
+      padding:10px 12px;
+    }
     .row{display:flex;gap:10px;align-items:end;flex-wrap:wrap;}
     .ctl{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);}
     .ctl select,.ctl input{
-      font-size:14px;padding:8px 10px;border:2px solid var(--grid);border-radius:8px;background:#fff;color:var(--ink);
+      font-size:14px;padding:8px 10px;border:2px solid var(--grid);
+      border-radius:8px;background:#fff;color:var(--ink);
       min-width:180px;
     }
-    button{font-size:14px;padding:10px 12px;border:2px solid var(--grid);background:#fff;border-radius:999px;cursor:pointer;}
+    button{
+      font-size:14px;padding:10px 12px;border:2px solid var(--grid);
+      background:#fff;border-radius:999px;cursor:pointer;
+    }
     .spacer{flex:1}
 
     .wrap{padding:12px;}
-    .panel{border:2px solid var(--grid);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);background:#fff;margin-bottom:12px;}
-    .monthHeader{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--hdr);color:#fff;font-weight:900;letter-spacing:.5px;text-transform:uppercase;font-size:14px;}
-    .monthHeader small{opacity:.85;font-weight:700;text-transform:none;letter-spacing:0;font-size:12px;}
+    .panel{
+      border:2px solid var(--grid);
+      border-radius:var(--radius);
+      overflow:hidden;
+      box-shadow:var(--shadow);
+      background:#fff;
+      margin-bottom:12px;
+    }
+    .monthHeader{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:10px 12px;background:var(--hdr);color:#fff;
+      font-weight:900;letter-spacing:.5px;text-transform:uppercase;font-size:14px;
+    }
+    .monthHeader small{
+      opacity:.85;font-weight:700;text-transform:none;letter-spacing:0;font-size:12px;
+    }
     .scrollX{overflow:auto;}
 
     table{border-collapse:collapse;width:max-content;min-width:100%;table-layout:fixed;font-family:var(--mono);font-size:12px;}
     th,td{border:1px solid var(--grid);padding:0;text-align:center;vertical-align:middle;}
     th.stickyLeft, td.stickyLeft{position:sticky;left:0;z-index:5;background:#fff;}
     th.stickyLeft2, td.stickyLeft2{position:sticky;left:240px;z-index:5;background:#fff;}
+
     .colName{width:240px;min-width:240px;max-width:240px;}
     .colSlot{width:80px;min-width:80px;max-width:80px;}
     .colDay{width:36px;min-width:36px;max-width:36px;}
@@ -53,13 +100,36 @@
     .slotCell{font-family:var(--sans);font-size:12px;font-weight:900;padding:6px 8px;text-align:left;white-space:nowrap;}
 
     td.code{user-select:none;font-weight:900;height:28px;line-height:28px;white-space:nowrap;}
+
+    /* baseline fills */
     td.code[data-code="A"]{background:var(--a);}
     td.code[data-code="B"]{background:var(--b);}
     td.code[data-code="C"]{background:var(--c);}
-    td.code[data-code="R"]{background:#e7e7e7;}
+    td.code[data-code="R"]{background:var(--r);}
+
     td.code[data-code="RDO"]{background:var(--rdo);color:var(--rdoInk);}
     td.code[data-code="MDO"]{background:var(--mdo);color:var(--mdoInk);}
-    td.code[data-code*="/"]{background:#fff;font-weight:1000;box-shadow:inset 0 0 0 2px #000;}
+
+    td.code[data-code*="/"]{
+      background:#fff;font-weight:1000;
+      box-shadow:inset 0 0 0 2px #000;
+    }
+
+    /* weekend column shading (header + body) */
+    th.sat, td.sat { background: var(--sat) !important; }
+    th.sun, td.sun { background: var(--sun) !important; }
+
+    /* keep RDO dark even on weekends */
+    td.sat[data-code="RDO"], td.sun[data-code="RDO"]{
+      background: var(--rdo) !important;
+      color: var(--rdoInk) !important;
+    }
+
+    /* HOL display (red text like paper) */
+    td.holiday{
+      color: var(--holidayRed) !important;
+      font-weight: 1000;
+    }
   </style>
 </head>
 <body>
@@ -75,13 +145,6 @@
         <select id="showMonths">
           <option value="3">3</option>
           <option value="4">4</option>
-        </select>
-      </div>
-
-      <div class="ctl">
-        <div>Range Ahead</div>
-        <select id="rangeAhead">
-          <option value="12">12 months</option>
         </select>
       </div>
 
@@ -118,22 +181,34 @@ const SLOT_TEMPLATES = {
 };
 
 /* =========================
-   Employees (edit as needed)
+   Employees (fix names)
    ========================= */
 const EMPLOYEES = [
   { name:"Kingston, Joseph C.", slot:1 },
   { name:"Rodriguez, Roger", slot:1 },
   { name:"Joseph, George R", slot:2 },
-  { name:"Ramnarine, Ashram", slot:2 },
+  { name:"Ramnarine, Ashram", slot:2 },   // fixed spelling
   { name:"Segovia, Eduardo M", slot:3 },
   { name:"Victoria, Robert", slot:3 },
   { name:"Bouaziz, Abdelghani", slot:4 },
-  { name:"Gragossian, Alan", slot:4 },
+  { name:"Gragossian, Alan", slot:4 },    // fixed Alan
   { name:"Handel, Joseph", slot:5 },
   { name:"Rakhmanov, Ravshan", slot:5 },
   { name:"Rodriguez, Alexander", slot:6 },
   { name:"Svenjak, Mark", slot:6 }
 ];
+
+/* =========================
+   Holidays (2025) — your list
+   NOTE: these are in ISO yyyy-mm-dd format
+   ========================= */
+const HOLIDAYS_2025 = new Set([
+  "2025-01-01","2025-01-20","2025-02-17",
+  "2025-05-26",
+  "2025-06-19","2025-06-03","2025-06-06",
+  "2025-09-01","2025-10-13","2025-11-11",
+  "2025-11-27","2025-11-28","2025-12-25"
+]);
 
 /* =========================
    Date utils
@@ -149,6 +224,11 @@ function dowShort(d){ return ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDa
 function monthTitle(d){
   const months=["January","February","March","April","May","June","July","August","September","October","November","December"];
   return `${months[d.getMonth()]} ${d.getFullYear()}`;
+}
+function addDays(dateObj, n){
+  const d = new Date(dateObj);
+  d.setDate(d.getDate()+n);
+  return d;
 }
 
 /* =========================
@@ -167,14 +247,98 @@ function baseCode(emp, iso){
 }
 
 /* =========================
-   State (view-only)
+   HOL rules (view-only)
+   - If holiday lands on weekday B => show HOL on that date (they're off)
+   - Otherwise (A/C/weekend B/RDO/MDO/R) => they get HOL on next valid weekday B
+   - HOL cannot be placed on Sat/Sun
+   - HOL cannot be placed on R day (Reserve) in view-only logic
    ========================= */
-const LS_KEY="pureSchedule_view_v1";
+function isWeekend(d){ const w=d.getDay(); return w===0 || w===6; }
+function isWeekday(d){ const w=d.getDay(); return w>=1 && w<=5; }
+
+/** Build a full display map for an employee: dateISO -> {base, display, isHOL} */
+function buildEmployeeDisplayMap(emp, rangeStart, rangeEnd){
+  // 1) baseline
+  const baseMap = new Map();
+  let d = new Date(rangeStart);
+  while(d <= rangeEnd){
+    const iso = isoDate(d);
+    baseMap.set(iso, baseCode(emp, iso));
+    d = addDays(d,1);
+  }
+
+  // 2) determine HOL credits and placements
+  const holPlaced = new Set();
+
+  const holidaysInRange = [];
+  for(const iso of HOLIDAYS_2025){
+    const hd = parseISODate(iso);
+    if(hd >= rangeStart && hd <= rangeEnd) holidaysInRange.push(iso);
+  }
+  holidaysInRange.sort(); // chronological
+
+  function canPlaceHOLOnDate(iso){
+    const dt = parseISODate(iso);
+    if(!isWeekday(dt)) return false;
+    const b = baseMap.get(iso) || "";
+    if(b !== "B") return false;
+    if(b === "R") return false;
+    if(holPlaced.has(iso)) return false;
+    return true;
+  }
+
+  function findNextWeekdayB(fromISO){
+    // search forward up to 60 days (enough to find a weekday B in the 42-day loop)
+    let dt = parseISODate(fromISO);
+    for(let i=0;i<60;i++){
+      const iso = isoDate(dt);
+      if(canPlaceHOLOnDate(iso)) return iso;
+      dt = addDays(dt,1);
+    }
+    return null;
+  }
+
+  for(const holISO of holidaysInRange){
+    const holDate = parseISODate(holISO);
+    const b = baseMap.get(holISO) || "";
+
+    // If holiday itself is a weekday AND baseline is B: show HOL on that day (off)
+    if(isWeekday(holDate) && b === "B"){
+      holPlaced.add(holISO);
+      continue;
+    }
+
+    // Otherwise: place HOL on next weekday B
+    const next = findNextWeekdayB(holISO);
+    if(next) holPlaced.add(next);
+  }
+
+  // 3) build display map (HOL overrides the cell text only)
+  const displayMap = new Map();
+  d = new Date(rangeStart);
+  while(d <= rangeEnd){
+    const iso = isoDate(d);
+    const b = baseMap.get(iso) || "";
+    const isHOL = holPlaced.has(iso);
+    const display = isHOL ? "HOL" : b;
+    displayMap.set(iso, { base:b, display, isHOL });
+    d = addDays(d,1);
+  }
+
+  return displayMap;
+}
+
+/* =========================
+   State
+   ========================= */
+const LS_KEY="pureSchedule_view_v2";
 function loadState(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)||"null"); }catch(e){ return null; } }
 function saveState(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
 
+// default: show current month, 3 months on screen
+const now = new Date();
 const state = loadState() || {
-  startMonthISO: "2026-01",  // start Jan 2026 by default
+  startMonthISO: isoMonth(now),
   showMonths: 3
 };
 
@@ -198,14 +362,27 @@ function render(){
   }
 
   monthsWrap.innerHTML="";
+
   const start=parseISOMonth(state.startMonthISO);
-  for(let i=0;i<Number(state.showMonths);i++){
+  const monthsToShow = Number(state.showMonths);
+
+  // Build an overall range for HOL placement (we need enough forward days)
+  const rangeStart = new Date(start);
+  const rangeEnd = addDays(addMonths(start, 12), 70); // 12 months + buffer for "next weekday B" placement
+
+  // Precompute display maps per employee once
+  const displayMaps = new Map();
+  for(const emp of EMPLOYEES){
+    displayMaps.set(emp.name, buildEmployeeDisplayMap(emp, rangeStart, rangeEnd));
+  }
+
+  for(let i=0;i<monthsToShow;i++){
     const mDate=addMonths(start,i);
-    monthsWrap.appendChild(renderMonthPanel(mDate));
+    monthsWrap.appendChild(renderMonthPanel(mDate, displayMaps));
   }
 }
 
-function renderMonthPanel(monthDate){
+function renderMonthPanel(monthDate, displayMaps){
   const y=monthDate.getFullYear(), m0=monthDate.getMonth(), dim=daysInMonth(y,m0);
 
   const panel=document.createElement("div");
@@ -226,6 +403,7 @@ function renderMonthPanel(monthDate){
   const thead=document.createElement("thead");
   table.appendChild(thead);
 
+  // Row 1: day numbers
   const r1=document.createElement("tr");
   thead.appendChild(r1);
 
@@ -239,13 +417,21 @@ function renderMonthPanel(monthDate){
   thSlot.textContent="SLOT";
   r1.appendChild(thSlot);
 
-  for(let d=1; d<=dim; d++){
+  for(let day=1; day<=dim; day++){
+    const date=new Date(y,m0,day);
     const th=document.createElement("th");
     th.className="colDay dayTop";
-    th.textContent=String(d);
+    th.textContent=String(day);
+
+    // weekend shading
+    const w=date.getDay();
+    if(w===6) th.classList.add("sat");
+    if(w===0) th.classList.add("sun");
+
     r1.appendChild(th);
   }
 
+  // Row 2: weekday labels
   const r2=document.createElement("tr");
   thead.appendChild(r2);
 
@@ -259,11 +445,17 @@ function renderMonthPanel(monthDate){
   thS2.textContent="";
   r2.appendChild(thS2);
 
-  for(let d=1; d<=dim; d++){
-    const date=new Date(y,m0,d);
+  for(let day=1; day<=dim; day++){
+    const date=new Date(y,m0,day);
     const th=document.createElement("th");
     th.className="colDay dow";
     th.textContent=dowShort(date);
+
+    // weekend shading
+    const w=date.getDay();
+    if(w===6) th.classList.add("sat");
+    if(w===0) th.classList.add("sun");
+
     r2.appendChild(th);
   }
 
@@ -271,12 +463,13 @@ function renderMonthPanel(monthDate){
   table.appendChild(tbody);
 
   for(const emp of EMPLOYEES){
-    tbody.appendChild(renderPersonRow(monthDate, emp, dim));
+    tbody.appendChild(renderPersonRow(monthDate, emp, dim, displayMaps.get(emp.name)));
   }
+
   return panel;
 }
 
-function renderPersonRow(monthDate, emp, dim){
+function renderPersonRow(monthDate, emp, dim, displayMap){
   const y=monthDate.getFullYear(), m0=monthDate.getMonth();
   const tr=document.createElement("tr");
   tr.className="personRow";
@@ -292,17 +485,35 @@ function renderPersonRow(monthDate, emp, dim){
   tdSlot.textContent=`Slot ${emp.slot}`;
   tr.appendChild(tdSlot);
 
-  for(let d=1; d<=dim; d++){
-    const iso=isoDate(new Date(y,m0,d));
-    const c=baseCode(emp, iso);
+  for(let day=1; day<=dim; day++){
+    const dateObj = new Date(y,m0,day);
+    const iso = isoDate(dateObj);
+    const w = dateObj.getDay(); // 0 Sun, 6 Sat
+
+    const info = displayMap.get(iso) || { base:"", display:"", isHOL:false };
+    const disp = info.display;
 
     const td=document.createElement("td");
     td.className="colDay code";
-    td.textContent=c;
-    td.setAttribute("data-code", c);
-    td.dataset.code=c;
+    td.textContent=disp;
+
+    // keep baseline attribute for fill rules (HOL uses base fill)
+    td.dataset.code = (info.isHOL ? info.base : disp) || disp;
+    td.setAttribute("data-code", td.dataset.code);
+
+    // weekend shading
+    if(w===6) td.classList.add("sat");
+    if(w===0) td.classList.add("sun");
+
+    // HOL styling (red text)
+    if(info.isHOL){
+      td.classList.add("holiday");
+      td.textContent = "HOL";
+    }
+
     tr.appendChild(td);
   }
+
   return tr;
 }
 
@@ -324,7 +535,7 @@ document.getElementById("thisBtn").addEventListener("click", ()=>{
   saveState(); render();
 });
 startMonthInput.addEventListener("change", ()=>{
-  state.startMonthISO=startMonthInput.value || "2026-01";
+  state.startMonthISO=startMonthInput.value || isoMonth(new Date());
   saveState(); render();
 });
 showMonthsSel.addEventListener("change", ()=>{
