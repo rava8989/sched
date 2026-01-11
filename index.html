@@ -1,555 +1,280 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Pure Schedule</title>
-  <style>
-    :root{
-      --bg:#ffffff;
-      --ink:#111;
-      --muted:#666;
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Pure Schedule</title>
 
-      /* paper-like grid + headers (less harsh than black) */
-      --grid:#3a3a3a;
-      --hdr:#262626;
-      --hdr2:#323232;
+<style>
+:root{
+  --grid:#444;
+  --hdr:#2f2f2f;
+  --hdr2:#3a3a3a;
+  --sat:#dedede;
+  --sun:#c8c8c8;
+  --rdo:#1f1f1f;
+  --rdoInk:#fff;
+  --mdo:#bdbdbd;
+  --holiday:#b30000;
+}
 
-      /* base cell fills (close to your photo) */
-      --a:#d0d0d0;   /* A */
-      --b:#f5f5f5;   /* B */
-      --c:#dedede;   /* C */
-      --r:#e6e6e6;   /* R */
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+  background:#fff;
+}
 
-      /* weekend shading */
-      --sat:#d6d6d6; /* Saturday */
-      --sun:#bfbfbf; /* Sunday */
+header{
+  position:sticky;
+  top:0;
+  background:#fff;
+  border-bottom:2px solid var(--grid);
+  padding:8px;
+  z-index:20;
+}
 
-      /* dark RDO cell */
-      --rdo:#2a2a2a;
-      --rdoInk:#fff;
+.controls{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  align-items:center;
+}
 
-      /* MDO cell */
-      --mdo:#bfbfbf;
-      --mdoInk:#111;
+select,input,button{
+  padding:6px 8px;
+  font-size:14px;
+  border:2px solid var(--grid);
+  border-radius:8px;
+  background:#fff;
+}
 
-      --holidayRed:#b30000;
+button{cursor:pointer}
 
-      --shadow:0 2px 10px rgba(0,0,0,.08);
-      --radius:10px;
-      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
-      --sans: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
-    }
+.wrap{
+  padding:8px;
+}
 
-    html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);}
+.panel{
+  border:2px solid var(--grid);
+  border-radius:10px;
+  margin-bottom:12px;
+  overflow:hidden;
+}
 
-    .topbar{
-      position:sticky;top:0;z-index:50;background:var(--bg);
-      border-bottom:2px solid var(--grid);
-      padding:10px 12px;
-    }
-    .row{display:flex;gap:10px;align-items:end;flex-wrap:wrap;}
-    .ctl{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);}
-    .ctl select,.ctl input{
-      font-size:14px;padding:8px 10px;border:2px solid var(--grid);
-      border-radius:8px;background:#fff;color:var(--ink);
-      min-width:180px;
-    }
-    button{
-      font-size:14px;padding:10px 12px;border:2px solid var(--grid);
-      background:#fff;border-radius:999px;cursor:pointer;
-    }
-    .spacer{flex:1}
+.monthHeader{
+  background:var(--hdr);
+  color:#fff;
+  padding:8px 12px;
+  font-weight:900;
+  text-transform:uppercase;
+  font-size:14px;
+}
 
-    .wrap{padding:12px;}
-    .panel{
-      border:2px solid var(--grid);
-      border-radius:var(--radius);
-      overflow:hidden;
-      box-shadow:var(--shadow);
-      background:#fff;
-      margin-bottom:12px;
-    }
-    .monthHeader{
-      display:flex;align-items:center;justify-content:space-between;
-      padding:10px 12px;background:var(--hdr);color:#fff;
-      font-weight:900;letter-spacing:.5px;text-transform:uppercase;font-size:14px;
-    }
-    .monthHeader small{
-      opacity:.85;font-weight:700;text-transform:none;letter-spacing:0;font-size:12px;
-    }
-    .scrollX{overflow:auto;}
+.scroll{
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+}
 
-    table{border-collapse:collapse;width:max-content;min-width:100%;table-layout:fixed;font-family:var(--mono);font-size:12px;}
-    th,td{border:1px solid var(--grid);padding:0;text-align:center;vertical-align:middle;}
-    th.stickyLeft, td.stickyLeft{position:sticky;left:0;z-index:5;background:#fff;}
-    th.stickyLeft2, td.stickyLeft2{position:sticky;left:240px;z-index:5;background:#fff;}
+table{
+  border-collapse:collapse;
+  font-family:ui-monospace,Menlo,Consolas,monospace;
+  font-size:12px;
+}
 
-    .colName{width:240px;min-width:240px;max-width:240px;}
-    .colSlot{width:80px;min-width:80px;max-width:80px;}
-    .colDay{width:36px;min-width:36px;max-width:36px;}
+th,td{
+  border:1px solid var(--grid);
+  text-align:center;
+  padding:0;
+  height:28px;
+  min-width:34px;
+}
 
-    thead .dayTop{background:var(--hdr);color:#fff;font-weight:900;}
-    thead .dow{background:var(--hdr2);color:#fff;font-weight:800;font-size:11px;}
-    thead .band{background:var(--hdr);color:#fff;text-transform:uppercase;letter-spacing:.5px;}
+th{
+  background:var(--hdr2);
+  color:#fff;
+  font-weight:800;
+}
 
-    tbody tr.personRow td{background:#f3f3f3;}
-    tbody tr.personRow:nth-child(2n) td{background:#eaeaea;}
+th.name, td.name{
+  position:sticky;
+  left:0;
+  background:#f0f0f0;
+  z-index:5;
+  text-align:left;
+  padding:0 8px;
+  min-width:200px;
+  font-family:system-ui;
+  font-weight:800;
+}
 
-    .nameCell{padding:6px 10px;text-align:left;font-family:var(--sans);font-size:13px;font-weight:900;white-space:nowrap;}
-    .slotCell{font-family:var(--sans);font-size:12px;font-weight:900;padding:6px 8px;text-align:left;white-space:nowrap;}
+th.slot, td.slot{
+  position:sticky;
+  left:200px;
+  background:#e6e6e6;
+  z-index:5;
+  min-width:70px;
+  font-family:system-ui;
+  font-weight:800;
+}
 
-    td.code{user-select:none;font-weight:900;height:28px;line-height:28px;white-space:nowrap;}
+td[data-code="RDO"]{
+  background:var(--rdo);
+  color:var(--rdoInk);
+}
 
-    /* baseline fills */
-    td.code[data-code="A"]{background:var(--a);}
-    td.code[data-code="B"]{background:var(--b);}
-    td.code[data-code="C"]{background:var(--c);}
-    td.code[data-code="R"]{background:var(--r);}
+td[data-code="MDO"]{
+  background:var(--mdo);
+}
 
-    td.code[data-code="RDO"]{background:var(--rdo);color:var(--rdoInk);}
-    td.code[data-code="MDO"]{background:var(--mdo);color:var(--mdoInk);}
+td.sat{background:var(--sat)}
+td.sun{background:var(--sun)}
 
-    td.code[data-code*="/"]{
-      background:#fff;font-weight:1000;
-      box-shadow:inset 0 0 0 2px #000;
-    }
+td.hol{
+  color:var(--holiday);
+  font-weight:900;
+}
 
-    /* weekend column shading (header + body) */
-    th.sat, td.sat { background: var(--sat) !important; }
-    th.sun, td.sun { background: var(--sun) !important; }
-
-    /* keep RDO dark even on weekends */
-    td.sat[data-code="RDO"], td.sun[data-code="RDO"]{
-      background: var(--rdo) !important;
-      color: var(--rdoInk) !important;
-    }
-
-    /* HOL display (red text like paper) */
-    td.holiday{
-      color: var(--holidayRed) !important;
-      font-weight: 1000;
-    }
-  </style>
+@media (max-width:700px){
+  th.name,td.name{min-width:150px}
+  th.slot,td.slot{min-width:60px}
+  table{font-size:11px}
+}
+</style>
 </head>
+
 <body>
-  <div class="topbar">
-    <div class="row">
-      <div class="ctl">
-        <div>Start Month</div>
-        <input id="startMonth" type="month" />
-      </div>
 
-      <div class="ctl">
-        <div>Show Months (on screen)</div>
-        <select id="showMonths">
-          <option value="3">3</option>
-          <option value="4">4</option>
-        </select>
-      </div>
+<header>
+  <div class="controls">
+    <label>Start Month
+      <input id="startMonth" type="month">
+    </label>
 
-      <button id="prevBtn">◀ Prev</button>
-      <button id="nextBtn">Next ▶</button>
-      <button id="thisBtn">This Month</button>
+    <label>Show Months
+      <select id="showMonths">
+        <option value="3">3</option>
+        <option value="4">4</option>
+      </select>
+    </label>
 
-      <div class="spacer"></div>
-
-      <div class="ctl">
-        <div>Scroll To Person</div>
-        <select id="personJump"></select>
-      </div>
-      <button id="jumpBtn">Jump</button>
-    </div>
+    <button id="prev">◀</button>
+    <button id="next">▶</button>
+    <button id="today">This Month</button>
   </div>
+</header>
 
-  <div class="wrap" id="monthsWrap"></div>
+<div class="wrap" id="wrap"></div>
 
 <script>
-/* =========================
-   Baseline 6-week loop
-   ========================= */
-const ANCHOR_DATE_ISO = "2026-01-01";
-const LOOP_LEN = 42;
+/* ================= BASE DATA ================= */
 
-const SLOT_TEMPLATES = {
-  1: ["R","R","RDO","RDO","RDO","MDO","C","C/A","C","C","C","C","RDO","RDO","B","B","B","B","B","B","RDO","RDO","A","A","A","A","A/C","A","MDO","RDO","RDO","RDO","B","B","B","B","B","RDO","RDO","R","R","R"],
-  2: ["C/A","C","C","C","C","RDO","RDO","B","B","B","B","B","B","RDO","RDO","A","A","A","A","A/C","A","MDO","RDO","RDO","RDO","B","B","B","B","B","RDO","RDO","R","R","R","R","R","RDO","RDO","RDO","MDO","C"],
-  3: ["B","B","B","B","B","B","RDO","RDO","A","A","A","A","A/C","A","MDO","RDO","RDO","RDO","B","B","B","B","B","RDO","RDO","R","R","R","R","R","RDO","RDO","RDO","MDO","C","C/A","C","C","C","C","RDO","RDO"],
-  4: ["RDO","A","A","A","A","A/C","A","MDO","RDO","RDO","RDO","B","B","B","B","B","RDO","RDO","R","R","R","R","R","RDO","RDO","RDO","MDO","C","C/A","C","C","C","C","RDO","RDO","B","B","B","B","B","B","RDO"],
-  5: ["MDO","RDO","RDO","RDO","B","B","B","B","B","RDO","RDO","R","R","R","R","R","RDO","RDO","RDO","MDO","C","C/A","C","C","C","C","RDO","RDO","B","B","B","B","B","B","RDO","RDO","A","A","A","A","A/C","A"],
-  6: ["B","B","RDO","RDO","R","R","R","R","R","RDO","RDO","RDO","MDO","C","C/A","C","C","C","C","RDO","RDO","B","B","B","B","B","B","RDO","RDO","A","A","A","A","A/C","A","MDO","RDO","RDO","RDO","B","B","B"]
+const ANCHOR = "2026-01-01";
+const LOOP = 42;
+
+const SLOTS = {
+1:["R","R","RDO","RDO","RDO","MDO","C","C/A","C","C","C","C","RDO","RDO","B","B","B","B","B","B","RDO","RDO","A","A","A","A","A/C","A","MDO","RDO","RDO","RDO","B","B","B","B","B","RDO","RDO","R","R","R"],
+2:["C/A","C","C","C","C","RDO","RDO","B","B","B","B","B","B","RDO","RDO","A","A","A","A","A/C","A","MDO","RDO","RDO","RDO","B","B","B","B","B","RDO","RDO","R","R","R","R","R","RDO","RDO","RDO","MDO","C"],
+3:["B","B","B","B","B","B","RDO","RDO","A","A","A","A","A/C","A","MDO","RDO","RDO","RDO","B","B","B","B","B","RDO","RDO","R","R","R","R","R","RDO","RDO","RDO","MDO","C","C/A","C","C","C","C","RDO","RDO"],
+4:["RDO","A","A","A","A","A/C","A","MDO","RDO","RDO","RDO","B","B","B","B","B","RDO","RDO","R","R","R","R","R","RDO","RDO","RDO","MDO","C","C/A","C","C","C","C","RDO","RDO","B","B","B","B","B","B","RDO"],
+5:["MDO","RDO","RDO","RDO","B","B","B","B","B","RDO","RDO","R","R","R","R","R","RDO","RDO","RDO","MDO","C","C/A","C","C","C","C","RDO","RDO","B","B","B","B","B","B","RDO","RDO","A","A","A","A","A/C","A"],
+6:["B","B","RDO","RDO","R","R","R","R","R","RDO","RDO","RDO","MDO","C","C/A","C","C","C","C","RDO","RDO","B","B","B","B","B","B","RDO","RDO","A","A","A","A","A/C","A","MDO","RDO","RDO","RDO","B","B","B"]
 };
 
-/* =========================
-   Employees (fix names)
-   ========================= */
-const EMPLOYEES = [
-  { name:"Kingston, Joseph C.", slot:1 },
-  { name:"Rodriguez, Roger", slot:1 },
-  { name:"Joseph, George R", slot:2 },
-  { name:"Ramnarine, Ashram", slot:2 },   // fixed spelling
-  { name:"Segovia, Eduardo M", slot:3 },
-  { name:"Victoria, Robert", slot:3 },
-  { name:"Bouaziz, Abdelghani", slot:4 },
-  { name:"Gragossian, Alan", slot:4 },    // fixed Alan
-  { name:"Handel, Joseph", slot:5 },
-  { name:"Rakhmanov, Ravshan", slot:5 },
-  { name:"Rodriguez, Alexander", slot:6 },
-  { name:"Svenjak, Mark", slot:6 }
+const PEOPLE=[
+ {n:"Kingston, Joseph C.",s:1},
+ {n:"Rodriguez, Roger",s:1},
+ {n:"Joseph, George R",s:2},
+ {n:"Ramnarine, Ashram",s:2},
+ {n:"Segovia, Eduardo M",s:3},
+ {n:"Victoria, Robert",s:3},
+ {n:"Bouaziz, Abdelghani",s:4},
+ {n:"Gragossian, Alan",s:4},
+ {n:"Handel, Joseph",s:5},
+ {n:"Rakhmanov, Ravshan",s:5},
+ {n:"Rodriguez, Alexander",s:6},
+ {n:"Svenjak, Mark",s:6}
 ];
 
-/* =========================
-   Holidays (2025) — your list
-   NOTE: these are in ISO yyyy-mm-dd format
-   ========================= */
-const HOLIDAYS_2025 = new Set([
-  "2025-01-01","2025-01-20","2025-02-17",
-  "2025-05-26",
-  "2025-06-19","2025-06-03","2025-06-06",
-  "2025-09-01","2025-10-13","2025-11-11",
-  "2025-11-27","2025-11-28","2025-12-25"
+/* 2025 holidays */
+const HOL=new Set([
+"2025-01-01","2025-01-20","2025-02-17","2025-05-26",
+"2025-06-19","2025-06-03","2025-06-06","2025-09-01",
+"2025-10-13","2025-11-11","2025-11-27","2025-11-28","2025-12-25"
 ]);
 
-/* =========================
-   Date utils
-   ========================= */
-function pad2(n){ return String(n).padStart(2,"0"); }
-function isoDate(d){ return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
-function isoMonth(d){ return `${d.getFullYear()}-${pad2(d.getMonth()+1)}`; }
-function parseISODate(iso){ const [y,m,dd]=iso.split("-").map(Number); return new Date(y,m-1,dd); }
-function parseISOMonth(iso){ const [y,m]=iso.split("-").map(Number); return new Date(y,m-1,1); }
-function addMonths(date,n){ return new Date(date.getFullYear(), date.getMonth()+n, 1); }
-function daysInMonth(y,m0){ return new Date(y,m0+1,0).getDate(); }
-function dowShort(d){ return ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()]; }
-function monthTitle(d){
-  const months=["January","February","March","April","May","June","July","August","September","October","November","December"];
-  return `${months[d.getMonth()]} ${d.getFullYear()}`;
-}
-function addDays(dateObj, n){
-  const d = new Date(dateObj);
-  d.setDate(d.getDate()+n);
-  return d;
+/* ================= UTIL ================= */
+
+const $=id=>document.getElementById(id);
+const pad=n=>String(n).padStart(2,"0");
+const iso=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const addDays=(d,n)=>{let x=new Date(d);x.setDate(x.getDate()+n);return x};
+const idx=i=>((i%LOOP)+LOOP)%LOOP;
+
+function base(emp,date){
+  const a=new Date(ANCHOR);
+  return SLOTS[emp.s][idx(Math.floor((date-a)/86400000))];
 }
 
-/* =========================
-   Baseline schedule
-   ========================= */
-function loopIndex(iso){
-  const a=parseISODate(ANCHOR_DATE_ISO);
-  const d=parseISODate(iso);
-  const ms=24*60*60*1000;
-  const diff=Math.floor((d-a)/ms);
-  return ((diff%LOOP_LEN)+LOOP_LEN)%LOOP_LEN;
-}
-function baseCode(emp, iso){
-  const arr=SLOT_TEMPLATES[emp.slot];
-  return arr[loopIndex(iso)] || "";
-}
+/* ================= RENDER ================= */
 
-/* =========================
-   HOL rules (view-only)
-   - If holiday lands on weekday B => show HOL on that date (they're off)
-   - Otherwise (A/C/weekend B/RDO/MDO/R) => they get HOL on next valid weekday B
-   - HOL cannot be placed on Sat/Sun
-   - HOL cannot be placed on R day (Reserve) in view-only logic
-   ========================= */
-function isWeekend(d){ const w=d.getDay(); return w===0 || w===6; }
-function isWeekday(d){ const w=d.getDay(); return w>=1 && w<=5; }
-
-/** Build a full display map for an employee: dateISO -> {base, display, isHOL} */
-function buildEmployeeDisplayMap(emp, rangeStart, rangeEnd){
-  // 1) baseline
-  const baseMap = new Map();
-  let d = new Date(rangeStart);
-  while(d <= rangeEnd){
-    const iso = isoDate(d);
-    baseMap.set(iso, baseCode(emp, iso));
-    d = addDays(d,1);
-  }
-
-  // 2) determine HOL credits and placements
-  const holPlaced = new Set();
-
-  const holidaysInRange = [];
-  for(const iso of HOLIDAYS_2025){
-    const hd = parseISODate(iso);
-    if(hd >= rangeStart && hd <= rangeEnd) holidaysInRange.push(iso);
-  }
-  holidaysInRange.sort(); // chronological
-
-  function canPlaceHOLOnDate(iso){
-    const dt = parseISODate(iso);
-    if(!isWeekday(dt)) return false;
-    const b = baseMap.get(iso) || "";
-    if(b !== "B") return false;
-    if(b === "R") return false;
-    if(holPlaced.has(iso)) return false;
-    return true;
-  }
-
-  function findNextWeekdayB(fromISO){
-    // search forward up to 60 days (enough to find a weekday B in the 42-day loop)
-    let dt = parseISODate(fromISO);
-    for(let i=0;i<60;i++){
-      const iso = isoDate(dt);
-      if(canPlaceHOLOnDate(iso)) return iso;
-      dt = addDays(dt,1);
-    }
-    return null;
-  }
-
-  for(const holISO of holidaysInRange){
-    const holDate = parseISODate(holISO);
-    const b = baseMap.get(holISO) || "";
-
-    // If holiday itself is a weekday AND baseline is B: show HOL on that day (off)
-    if(isWeekday(holDate) && b === "B"){
-      holPlaced.add(holISO);
-      continue;
-    }
-
-    // Otherwise: place HOL on next weekday B
-    const next = findNextWeekdayB(holISO);
-    if(next) holPlaced.add(next);
-  }
-
-  // 3) build display map (HOL overrides the cell text only)
-  const displayMap = new Map();
-  d = new Date(rangeStart);
-  while(d <= rangeEnd){
-    const iso = isoDate(d);
-    const b = baseMap.get(iso) || "";
-    const isHOL = holPlaced.has(iso);
-    const display = isHOL ? "HOL" : b;
-    displayMap.set(iso, { base:b, display, isHOL });
-    d = addDays(d,1);
-  }
-
-  return displayMap;
-}
-
-/* =========================
-   State
-   ========================= */
-const LS_KEY="pureSchedule_view_v2";
-function loadState(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)||"null"); }catch(e){ return null; } }
-function saveState(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
-
-// default: show current month, 3 months on screen
-const now = new Date();
-const state = loadState() || {
-  startMonthISO: isoMonth(now),
-  showMonths: 3
-};
-
-/* =========================
-   Render
-   ========================= */
-const monthsWrap=document.getElementById("monthsWrap");
-const startMonthInput=document.getElementById("startMonth");
-const showMonthsSel=document.getElementById("showMonths");
-const personJump=document.getElementById("personJump");
+let start=new Date();
+start.setDate(1);
 
 function render(){
-  startMonthInput.value=state.startMonthISO;
-  showMonthsSel.value=String(state.showMonths);
-
-  personJump.innerHTML="";
-  for(const e of EMPLOYEES){
-    const o=document.createElement("option");
-    o.value=e.name; o.textContent=e.name;
-    personJump.appendChild(o);
-  }
-
-  monthsWrap.innerHTML="";
-
-  const start=parseISOMonth(state.startMonthISO);
-  const monthsToShow = Number(state.showMonths);
-
-  // Build an overall range for HOL placement (we need enough forward days)
-  const rangeStart = new Date(start);
-  const rangeEnd = addDays(addMonths(start, 12), 70); // 12 months + buffer for "next weekday B" placement
-
-  // Precompute display maps per employee once
-  const displayMaps = new Map();
-  for(const emp of EMPLOYEES){
-    displayMaps.set(emp.name, buildEmployeeDisplayMap(emp, rangeStart, rangeEnd));
-  }
-
-  for(let i=0;i<monthsToShow;i++){
-    const mDate=addMonths(start,i);
-    monthsWrap.appendChild(renderMonthPanel(mDate, displayMaps));
+  wrap.innerHTML="";
+  for(let m=0;m<+$("showMonths").value;m++){
+    drawMonth(new Date(start.getFullYear(),start.getMonth()+m,1));
   }
 }
 
-function renderMonthPanel(monthDate, displayMaps){
-  const y=monthDate.getFullYear(), m0=monthDate.getMonth(), dim=daysInMonth(y,m0);
+function drawMonth(d){
+  const y=d.getFullYear(),m=d.getMonth();
+  const days=new Date(y,m+1,0).getDate();
 
-  const panel=document.createElement("div");
-  panel.className="panel";
+  const p=document.createElement("div");
+  p.className="panel";
+  p.innerHTML=`<div class="monthHeader">${d.toLocaleString("default",{month:"long"})} ${y}</div>`;
+  const sc=document.createElement("div");sc.className="scroll";
+  const t=document.createElement("table");
 
-  const hdr=document.createElement("div");
-  hdr.className="monthHeader";
-  hdr.innerHTML=`<div>${monthTitle(monthDate)}</div><small>Rotating Shift (View Only)</small>`;
-  panel.appendChild(hdr);
+  let tr=document.createElement("tr");
+  tr.innerHTML=`<th class="name">NAME</th><th class="slot">SLOT</th>`;
+  for(let i=1;i<=days;i++) tr.innerHTML+=`<th>${i}</th>`;
+  t.appendChild(tr);
 
-  const scroll=document.createElement("div");
-  scroll.className="scrollX";
-  panel.appendChild(scroll);
-
-  const table=document.createElement("table");
-  scroll.appendChild(table);
-
-  const thead=document.createElement("thead");
-  table.appendChild(thead);
-
-  // Row 1: day numbers
-  const r1=document.createElement("tr");
-  thead.appendChild(r1);
-
-  const thName=document.createElement("th");
-  thName.className="stickyLeft colName band";
-  thName.textContent="NAME";
-  r1.appendChild(thName);
-
-  const thSlot=document.createElement("th");
-  thSlot.className="stickyLeft2 colSlot band";
-  thSlot.textContent="SLOT";
-  r1.appendChild(thSlot);
-
-  for(let day=1; day<=dim; day++){
-    const date=new Date(y,m0,day);
-    const th=document.createElement("th");
-    th.className="colDay dayTop";
-    th.textContent=String(day);
-
-    // weekend shading
-    const w=date.getDay();
-    if(w===6) th.classList.add("sat");
-    if(w===0) th.classList.add("sun");
-
-    r1.appendChild(th);
-  }
-
-  // Row 2: weekday labels
-  const r2=document.createElement("tr");
-  thead.appendChild(r2);
-
-  const thN2=document.createElement("th");
-  thN2.className="stickyLeft colName";
-  thN2.textContent="";
-  r2.appendChild(thN2);
-
-  const thS2=document.createElement("th");
-  thS2.className="stickyLeft2 colSlot";
-  thS2.textContent="";
-  r2.appendChild(thS2);
-
-  for(let day=1; day<=dim; day++){
-    const date=new Date(y,m0,day);
-    const th=document.createElement("th");
-    th.className="colDay dow";
-    th.textContent=dowShort(date);
-
-    // weekend shading
-    const w=date.getDay();
-    if(w===6) th.classList.add("sat");
-    if(w===0) th.classList.add("sun");
-
-    r2.appendChild(th);
-  }
-
-  const tbody=document.createElement("tbody");
-  table.appendChild(tbody);
-
-  for(const emp of EMPLOYEES){
-    tbody.appendChild(renderPersonRow(monthDate, emp, dim, displayMaps.get(emp.name)));
-  }
-
-  return panel;
-}
-
-function renderPersonRow(monthDate, emp, dim, displayMap){
-  const y=monthDate.getFullYear(), m0=monthDate.getMonth();
-  const tr=document.createElement("tr");
-  tr.className="personRow";
-  tr.id=`row-${emp.name.replaceAll(/[^a-z0-9]+/gi,"_")}`;
-
-  const tdName=document.createElement("td");
-  tdName.className="stickyLeft colName nameCell";
-  tdName.textContent=emp.name;
-  tr.appendChild(tdName);
-
-  const tdSlot=document.createElement("td");
-  tdSlot.className="stickyLeft2 colSlot slotCell";
-  tdSlot.textContent=`Slot ${emp.slot}`;
-  tr.appendChild(tdSlot);
-
-  for(let day=1; day<=dim; day++){
-    const dateObj = new Date(y,m0,day);
-    const iso = isoDate(dateObj);
-    const w = dateObj.getDay(); // 0 Sun, 6 Sat
-
-    const info = displayMap.get(iso) || { base:"", display:"", isHOL:false };
-    const disp = info.display;
-
-    const td=document.createElement("td");
-    td.className="colDay code";
-    td.textContent=disp;
-
-    // keep baseline attribute for fill rules (HOL uses base fill)
-    td.dataset.code = (info.isHOL ? info.base : disp) || disp;
-    td.setAttribute("data-code", td.dataset.code);
-
-    // weekend shading
-    if(w===6) td.classList.add("sat");
-    if(w===0) td.classList.add("sun");
-
-    // HOL styling (red text)
-    if(info.isHOL){
-      td.classList.add("holiday");
-      td.textContent = "HOL";
+  PEOPLE.forEach(ppl=>{
+    let r=document.createElement("tr");
+    r.innerHTML=`<td class="name">${ppl.n}</td><td class="slot">Slot ${ppl.s}</td>`;
+    for(let i=1;i<=days;i++){
+      let date=new Date(y,m,i);
+      let code=base(ppl,date);
+      let cls="";
+      if(date.getDay()==6) cls="sat";
+      if(date.getDay()==0) cls="sun";
+      if(HOL.has(iso(date))) cls+=" hol";
+      r.innerHTML+=`<td class="${cls}" data-code="${code}">${HOL.has(iso(date))?"HOL":code}</td>`;
     }
+    t.appendChild(r);
+  });
 
-    tr.appendChild(td);
-  }
-
-  return tr;
+  sc.appendChild(t);
+  p.appendChild(sc);
+  wrap.appendChild(p);
 }
 
-/* =========================
-   Controls
-   ========================= */
-document.getElementById("prevBtn").addEventListener("click", ()=>{
-  const d=parseISOMonth(state.startMonthISO);
-  state.startMonthISO=isoMonth(addMonths(d,-1));
-  saveState(); render();
-});
-document.getElementById("nextBtn").addEventListener("click", ()=>{
-  const d=parseISOMonth(state.startMonthISO);
-  state.startMonthISO=isoMonth(addMonths(d,1));
-  saveState(); render();
-});
-document.getElementById("thisBtn").addEventListener("click", ()=>{
-  state.startMonthISO=isoMonth(new Date());
-  saveState(); render();
-});
-startMonthInput.addEventListener("change", ()=>{
-  state.startMonthISO=startMonthInput.value || isoMonth(new Date());
-  saveState(); render();
-});
-showMonthsSel.addEventListener("change", ()=>{
-  state.showMonths=Number(showMonthsSel.value);
-  saveState(); render();
-});
-document.getElementById("jumpBtn").addEventListener("click", ()=>{
-  const key = personJump.value.replaceAll(/[^a-z0-9]+/gi,"_");
-  const el=document.getElementById(`row-${key}`);
-  if(el) el.scrollIntoView({behavior:"smooth", block:"center"});
-});
+/* ================= CONTROLS ================= */
 
-/* Init */
-saveState();
+$("startMonth").value=`${start.getFullYear()}-${pad(start.getMonth()+1)}`;
+
+$("startMonth").onchange=e=>{
+  start=new Date(e.target.value+"-01");
+  render();
+};
+$("prev").onclick=()=>{start.setMonth(start.getMonth()-1);render()};
+$("next").onclick=()=>{start.setMonth(start.getMonth()+1);render()};
+$("today").onclick=()=>{start=new Date();start.setDate(1);render()};
+$("showMonths").onchange=render;
+
 render();
 </script>
 </body>
